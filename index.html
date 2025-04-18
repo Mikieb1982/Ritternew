@@ -3,663 +3,751 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Simple Platformer - Mobile Enhanced</title>
+    <title>RitterRun Enhanced - With Platforms</title>
     <style>
-        /* Basic Reset */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* CSS largely unchanged from the original provided code */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; -ms-user-select: none; -moz-user-select: none; touch-action: manipulation; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background-color: #222; }
+        /* Using original color variables */
+        :root { --bb-green: #0ca644; --bb-blue: #0296c6; --bb-yellow: #f5d306; --bb-black: #151513; --bb-white: #ffffff; --font-sans: 'Arial', sans-serif; --font-pixel: 'Press Start 2P', cursive; }
+        body { display: flex; justify-content: center; align-items: center; margin: 0; font-family: var(--font-sans); }
+        #game-container { position: relative; border: 3px solid #444; overflow: hidden; background-color: var(--bb-blue); width: 800px; height: 400px; max-width: 100%; box-sizing: border-box; display: block; border-radius: 8px; }
+        @media (max-width: 850px) { #game-container { width: 100vw; height: 50vw; max-height: 100vh; max-width: 100vw; border-radius: 0; } #scoreDisplay, #livesDisplay { font-size: 1.2em; } .poi-overlay h3 { font-size: 1em; } .poi-overlay p { font-size: 0.8em; } #closePoiButton { font-size: 0.8em; } }
+        canvas { display: block; width: 100%; height: 100%; }
+        #knightImage { position: absolute; display: none; pointer-events: none; z-index: 10; image-rendering: pixelated; image-rendering: crisp-edges; }
+        .ui-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.75); color: var(--bb-white); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 30; padding: 20px; font-family: var(--font-sans); line-height: 1.6; }
+        .ui-screen h1 { font-size: 3em; margin-bottom: 20px; color: var(--bb-yellow); text-shadow: 1px 1px 2px var(--bb-black); }
+        .ui-screen h2 { font-size: 2.5em; margin-bottom: 20px; color: #f88; text-shadow: 1px 1px 2px var(--bb-black); }
+        .ui-screen p { font-size: 1.1em; margin: 10px 0; }
+        .ui-button { padding: 12px 25px; font-size: 1.2em; font-family: var(--font-sans); margin-top: 30px; cursor: pointer; background-color: #eee; border: 1px solid #999; color: var(--bb-black); transition: background-color 0.15s ease, box-shadow 0.15s ease; border-radius: 6px; box-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .ui-button:hover { background-color: #ddd; box-shadow: 3px 3px 5px rgba(0,0,0,0.4); }
+        .ui-button:active { background-color: #ccc; transform: translate(1px, 1px); box-shadow: 1px 1px 3px rgba(0,0,0,0.3); }
+        .instructions { margin-top: 25px; font-size: 0.9em !important; color: #ccc; line-height: 1.5; }
+        #scoreDisplay, #livesDisplay { position: absolute; top: 15px; font-size: 1.6em; font-family: var(--font-sans); color: var(--bb-white); text-shadow: 1px 1px 3px rgba(0,0,0,0.7); z-index: 20; }
+        #scoreDisplay { left: 15px; }
+        #livesDisplay { right: 15px; }
+        .poi-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 550px; background-color: rgba(0, 0, 0, 0.88); border: 1px solid var(--bb-yellow); border-radius: 8px; z-index: 50; color: var(--bb-white); padding: 20px 25px; text-align: center; font-family: var(--font-sans); box-shadow: 3px 3px 8px rgba(0,0,0,0.5); display: none; cursor: pointer; }
+        .poi-overlay.visible { display: block !important; }
+        .poi-overlay h3 { margin-bottom: 15px; font-size: 1.3em; color: var(--bb-yellow); text-shadow: 1px 1px 2px var(--bb-black); }
+        .poi-overlay p { font-size: 1em; line-height: 1.6; color: var(--bb-white); margin-bottom: 20px; }
+        #closePoiButton { padding: 8px 15px; font-size: 1em; font-family: var(--font-sans); cursor: pointer; background-color: #ccc; border: 1px solid #888; color: var(--bb-black); margin-top: 10px; border-radius: 5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.4); }
+        #closePoiButton:hover { background-color: #bbb; }
+        #closePoiButton:active { background-color: #aaa; transform: translate(1px, 1px); box-shadow: 0px 0px 2px rgba(0,0,0,0.4); }
+        #joystickContainer { position: fixed; bottom: 25px; left: 25px; width: 120px; height: 120px; z-index: 25; display: none; /* Hidden by default */ pointer-events: none; }
+        #joystickBase { position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: rgba(80, 80, 80, 0.4); border: 2px solid rgba(255, 255, 255, 0.5); pointer-events: auto; }
+        #joystickKnob { position: absolute; width: 60px; height: 60px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.2); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: auto; transition: transform 0.05s linear; background-image: url('assets/knight_jump.png'); background-size: 80%; background-repeat: no-repeat; background-position: center; opacity: 0.5; }
+        #jumpButton { position: fixed; bottom: 25px; right: 25px; width: 15vw; height: 15vw; max-width: 80px; max-height: 80px; border-radius: 50%; background-color: rgba(200, 200, 200, 0.7); border: 2px solid rgba(255, 255, 255, 0.8); z-index: 25; display: none; /* Hidden by default */ color: var(--bb-black); font-family: var(--font-sans); font-size: 1em; font-weight: bold; user-select: none; -webkit-user-select: none; }
+        #jumpButton:active { background-color: rgba(255, 255, 255, 0.7); }
+        .hidden { display: none !important; }
+        #orientationMessage { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bb-black); color: var(--bb-white); display: none; /* Hidden by default */ flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 100; font-family: var(--font-pixel); padding: 20px; line-height: 1.8; font-size: 1.2em; }
+        #orientationMessage p { margin-bottom: 1em; }
 
-        body {
-            display: flex;
-            justify-content: center; /* Center horizontally */
-            align-items: center;    /* Center vertically */
-            width: 100vw;           /* Full viewport width */
-            height: 100vh;          /* Full viewport height */
-            margin: 0;
-            background-color: #111; /* Dark background outside game */
-            font-family: sans-serif;
-            color: white;
-            overflow: hidden; /* Prevent scrollbars */
+        /* Media Queries unchanged from original */
+        @media (orientation: portrait) {
+            #game-container { display: none; }
+            #orientationMessage { display: flex; }
+            #joystickContainer { display: none !important; }
+            #jumpButton { display: none !important; }
         }
-        #game-container {
-            border: 2px solid white; /* Keep border for non-fullscreen */
-            position: relative; /* Needed for absolute positioning of UI & controls */
-            /* Dimensions will be set by JS, but provide fallback/initial */
-            width: 800px;
-            height: 450px;
-            max-width: 100%; /* Ensure it doesn't overflow body */
-            max-height: 100%;
-            overflow: hidden; /* Hide anything spilling out */
+        @media (orientation: landscape) {
+            #orientationMessage { display: none; }
+            #game-container { display: block; }
+            /* TEST: Show joystick & jump button in ANY landscape view */
+            #joystickContainer { display: block; }
+            #jumpButton { display: block; }
         }
-        canvas {
-            display: block; /* Prevent extra space below canvas */
-            width: 100%;    /* Fill container width */
-            height: 100%;   /* Fill container height */
-            /* Background color is fallback if image fails */
-            background-color: #87CEEB;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
-        #ui-elements {
-             position: absolute;
-             top: 10px;
-             left: 10px;
-             background-color: rgba(0,0,0,0.6);
-             padding: 8px;
-             border-radius: 5px;
-             font-size: clamp(0.8rem, 2vw, 1.1rem); /* Responsive font size */
-             color: #FFFF00; /* Yellow score */
-             text-shadow: 1px 1px 1px black;
-             z-index: 10; /* Ensure UI is above canvas */
-        }
-        #instructions {
-             /* Instructions removed from HTML, can be added back if needed */
-             display: none; /* Hide instructions by default */
-        }
-
-        /* --- Touch Controls Styling --- */
-        .touch-control {
-            position: absolute;
-            z-index: 20; /* Above UI */
-            display: none; /* Hidden by default, shown via media query */
-            user-select: none;
-            -webkit-user-select: none;
-            opacity: 0.6; /* Semi-transparent */
-            border-radius: 50%;
-        }
-        #joystickContainer {
-            bottom: 15px;
-            left: 15px;
-            width: 120px; /* Adjust size as needed */
-            height: 120px;
-            /* background-color: rgba(100, 100, 100, 0.4); */ /* Optional base background */
-            /* border: 2px solid rgba(255, 255, 255, 0.5); */
-            pointer-events: none; /* Container doesn't receive events */
-        }
-        #joystickBase {
-            position: absolute;
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            background-color: rgba(80, 80, 80, 0.4);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            pointer-events: auto; /* Base receives events */
-        }
-        #joystickKnob {
-            position: absolute;
-            width: 50%; /* Relative to base */
-            height: 50%; /* Relative to base */
-            border-radius: 50%;
-            background-color: rgba(200, 200, 200, 0.7);
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%); /* Center knob */
-            pointer-events: none; /* Knob itself doesn't need events */
-            transition: transform 0.05s linear;
-        }
-        #jumpButton {
-            bottom: 25px; /* Align better with joystick */
-            right: 25px;
-            width: 80px; /* Fixed size jump button */
-            height: 80px;
-            background-color: rgba(50, 200, 50, 0.6); /* Greenish jump button */
-            border: 2px solid rgba(255, 255, 255, 0.7);
-            display: flex; /* Use flex to center text/icon */
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 1.2em;
-            font-weight: bold;
-            text-shadow: 1px 1px 1px black;
-            pointer-events: auto; /* Button receives events */
-        }
-         #jumpButton:active {
-             background-color: rgba(100, 255, 100, 0.8); /* Brighter green when active */
-         }
-
-        /* --- Media Queries for Controls and Layout --- */
-        /* Show controls only on touch devices in landscape */
-        @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
-            .touch-control {
-                display: block; /* Show joystick container */
-            }
-             #jumpButton {
-                 display: flex; /* Show jump button */
-             }
-        }
-        /* Hide controls on non-touch devices or portrait */
-        @media (hover: hover) and (pointer: fine), (orientation: portrait) {
-            .touch-control {
-                display: none;
-            }
-             #jumpButton {
-                 display: none;
-             }
-        }
-         /* Force landscape-like layout on larger screens */
-         @media (min-width: 600px) and (min-height: 400px) {
-              #game-container {
-                  /* Use aspect ratio for larger screens if desired */
-                  /* aspect-ratio: 16 / 9; */
-                  /* Or keep fixed size */
-                   width: 800px;
-                   height: 450px;
-              }
-         }
-
-
     </style>
 </head>
 <body>
+    <div id="orientationMessage"><p>Please rotate your device to landscape mode to play.</p><p>Bitte drehe dein Gerät ins Querformat, um zu spielen.</p></div>
     <div id="game-container">
-        <canvas id="gameCanvas"></canvas> <div id="ui-elements">
-            Score: <span id="score">0</span> / <span id="total-collectibles">0</span>
-        </div>
-        <div id="joystickContainer" class="touch-control">
-            <div id="joystickBase">
-                <div id="joystickKnob"></div>
-            </div>
-        </div>
-        <button id="jumpButton" class="touch-control">JUMP</button>
+        <canvas id="gameCanvas"></canvas>
+        <img id="knightImage" src="" alt="Knight">
+        <div id="poiInfoOverlay" class="poi-overlay"><h3 id="poiName">POI Name</h3><p id="poiInfoText">POI information will appear here.</p><button id="closePoiButton">Close</button></div>
+        <div id="startScreen" class="ui-screen"><h1>RitterRun</h1><p>Explore Bad Belzig!</p><p>High Score: <span id="startHighScore">0</span></p><button id="startButton" class="ui-button">Start Game</button><p class="instructions">Use Arrow Keys or Joystick to Move<br>Press SPACE, Click Screen, or Tap JUMP to Jump<br>Press Enter or Click/Tap POI to Close Info</p></div>
+        <div id="gameOverScreen" class="ui-screen hidden"><h2>Game Over!</h2><p>Score/Punkte: <span id="finalScore">0</span></p><p>High Score: <span id="gameOverHighScore">0</span></p><button id="restartButton" class="ui-button">Restart</button></div>
+        <div id="scoreDisplay" class="hidden">Score/Punkte: <span id="currentScore">0</span></div>
+        <div id="livesDisplay" class="hidden">Lives/Leben: <span id="currentLives">5</span></div>
     </div>
+    <div id="joystickContainer"><div id="joystickBase"><div id="joystickKnob"></div></div></div>
+    <button id="jumpButton">JUMP</button>
+
     <script>
         // --- Strict mode and IIFE ---
         (function() {
             'use strict';
 
-            // --- DOM Elements ---
+            // --- DOM Element References (Unchanged) ---
             const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            const scoreSpan = document.getElementById('score');
-            const totalCollectiblesSpan = document.getElementById('total-collectibles');
             const gameContainer = document.getElementById('game-container');
+            const startScreen = document.getElementById('startScreen');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const startButton = document.getElementById('startButton');
+            const restartButton = document.getElementById('restartButton');
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            const currentScoreSpan = document.getElementById('currentScore');
+            const finalScoreSpan = document.getElementById('finalScore');
+            const startHighScoreSpan = document.getElementById('startHighScore');
+            const gameOverHighScoreSpan = document.getElementById('gameOverHighScore');
+            const poiOverlay = document.getElementById('poiInfoOverlay');
+            const poiNameEl = document.getElementById('poiName');
+            const poiInfoTextEl = document.getElementById('poiInfoText');
+            const closePoiButton = document.getElementById('closePoiButton');
+            const livesDisplay = document.getElementById('livesDisplay');
+            const currentLivesSpan = document.getElementById('currentLives');
+            const knightImageEl = document.getElementById('knightImage');
             const joystickContainer = document.getElementById('joystickContainer');
             const joystickBase = document.getElementById('joystickBase');
             const joystickKnob = document.getElementById('joystickKnob');
             const jumpButton = document.getElementById('jumpButton');
+            const orientationMessage = document.getElementById('orientationMessage');
+
+            // --- Canvas and Context ---
+            let ctx; let canvasWidth; let canvasHeight;
+
+            // --- Essential Element Check (Unchanged) ---
+            if (!canvas || !canvas.getContext || !gameContainer) { alert("Fatal Error: Canvas not found!"); return; }
+            ctx = canvas.getContext('2d');
+            const requiredElements = { startScreen, gameOverScreen, startButton, restartButton, scoreDisplay, currentScoreSpan, finalScoreSpan, startHighScoreSpan, gameOverHighScoreSpan, poiOverlay, poiNameEl, poiInfoTextEl, closePoiButton, livesDisplay, currentLivesSpan, knightImageEl, joystickContainer, joystickBase, joystickKnob, jumpButton, orientationMessage };
+            for (const key in requiredElements) { if (!requiredElements[key]) { console.error(`Fatal Error: UI element '${key}' not found!`); alert(`Fatal Error: UI element missing (${key})!`); return; } }
+
+            // --- Game States (Unchanged) ---
+            const GameState = Object.freeze({ MENU: 'MENU', PLAYING: 'PLAYING', GAME_OVER: 'GAME_OVER', LOADING: 'LOADING' });
+            let currentGameState = GameState.LOADING;
+
+            // --- Collision Types ---
+            // Added PLATFORM type for clarity, though TOP might cover landing
+            const CollisionType = Object.freeze({ NONE: 0, TOP: 1, SIDE: 2, PLATFORM: 3 });
+
+            // --- Game Constants (Mostly unchanged, adjust gravity/jump if needed) ---
+            const LIVES_START_COUNT = 5; const INVINCIBILITY_DURATION_MS = 1000; const GROUND_HEIGHT_PERCENT = 0.075; const PLAYER_INITIAL_X_PERCENT = 0.075; const PLAYER_WIDTH_PERCENT_DESKTOP = 0.10; const PLAYER_HEIGHT_PERCENT_DESKTOP = 0.20; const PLAYER_WIDTH_PERCENT_MOBILE = 0.14; const PLAYER_HEIGHT_PERCENT_MOBILE = 0.28; const PLAYER_GRAVITY_FACTOR = 1300; // Gravity might need adjustment for platforms
+            const PLAYER_JUMP_FACTOR = -40; // Jump power might need adjustment
+            const PLAYER_BOUNCE_POWER_MULTIPLIER = 0.8; const PLAYER_ACCEL_FACTOR = 1.0; const PLAYER_MAX_DX_FACTOR = 0.375; const PLAYER_FRICTION = 0.90; const OBSTACLE_STONE_WIDTH_PERCENT = 0.088; const OBSTACLE_STONE_HEIGHT_PERCENT = 0.176; const OBSTACLE_TRACTOR_WIDTH_PERCENT = 0.176; const OBSTACLE_TRACTOR_HEIGHT_PERCENT = 0.226; const OBSTACLE_FAMILY_WIDTH_PERCENT = 0.088; const OBSTACLE_FAMILY_HEIGHT_PERCENT = 0.176;
+            const POI_SIGN_WIDTH_PERCENT = 0.226; // Kept doubled size from original
+            const POI_SIGN_HEIGHT_PERCENT = 0.55;  // Kept doubled size from original
+            const OBSTACLE_SPEED_FACTOR = 0.375; const SPEED_INCREASE_INTERVAL_SCORE = 400; const BACKGROUND_SWITCH_SCORE_INTERVAL = 1000;
+            const POI_SPAWN_CHANCE = 0.15;
+            const OBSTACLE_BASE_SPAWN_TIME_MS = 1800; const OBSTACLE_MIN_SPAWN_TIME_MS = 800;
+            // Adjust landing tolerance if needed for platforms
+            const COLLISION_LANDING_TOLERANCE_FACTOR = 0.045;
+            const MOBILE_BREAKPOINT_WIDTH = 850; const BACKGROUND_SCROLL_SPEED_FACTOR = 0.1; const backgroundSequence = [0, 1, 2, 1, 0]; const FINAL_POI_ID = 7; const BACKGROUND_TRANSITION_DURATION = 1000; const JOYSTICK_DEAD_ZONE = 10;
+            const TRACTOR_OSC_AMPLITUDE_FACTOR = 0.02; const TRACTOR_OSC_FREQUENCY = 0.75;
+
+            // --- Game Variables ---
+            let score = 0; let highScore = 0; let playerLives = LIVES_START_COUNT; let playerInvincibleUntil = 0;
+            // Player state 'grounded' is now crucial for platform interaction
+            let player = { x: 0, y: 0, width: 0, height: 0, dx: 0, dy: 0, gravity: 0, jumpPower: 0, grounded: true };
+            let obstacles = []; let obstacleSpeed = 0; let playerMaxDx = 0; let playerAccel = 0;
+            let nextSpeedIncreaseScore = SPEED_INCREASE_INTERVAL_SCORE; let bgX = 0; let backgroundSequenceIndex = 0; let nextBackgroundSwitchScore = BACKGROUND_SWITCH_SCORE_INTERVAL;
+            let nextObstacleSpawnTime = 0; let nextPoiIndex = 0; let lastTime = 0; let gameInitialized = false; let isPaused = false; let groundHeightPx = 0; let collisionLandingTolerancePx = 0;
+            let currentKnightVisualState = null; let isPressingLeft = false; let isPressingRight = false;
+            let isTransitioningBackground = false; let transitionStartTime = 0; let previousBackgroundSequenceIndex = 0;
+            let joystickActive = false; let joystickStartX = 0; let joystickStartY = 0; let joystickBaseRect = null; let joystickRadius = 0;
+            let worldScrollX = 0; // Track how much the world has scrolled
+
+            // --- NEW: Platforms ---
+            // Define platforms relative to the start of the world (x=0)
+            // y is the top edge of the platform
+            let platforms = [
+                // Example platforms - adjust positions and sizes as needed
+                { worldX: 500, y: canvasHeight * 0.7, width: 200, height: 20, color: '#A0522D' },
+                { worldX: 900, y: canvasHeight * 0.6, width: 150, height: 20, color: '#A0522D' },
+                { worldX: 1300, y: canvasHeight * 0.75, width: 100, height: 20, color: '#A0522D' },
+                { worldX: 1600, y: canvasHeight * 0.5, width: 180, height: 20, color: '#A0522D' },
+                 // Add more platforms here...
+            ];
 
 
-            // --- Essential Element Check ---
-            if (!canvas || !ctx || !scoreSpan || !totalCollectiblesSpan || !gameContainer || !joystickContainer || !joystickBase || !joystickKnob || !jumpButton) {
-                alert("Fatal Error: Required elements not found!");
-                return;
-            }
-
-            // --- Game Configuration ---
-            const gravity = 800;
-            const playerSpeed = 200;
-            const jumpPower = 450;
-            // Make player size relative to canvas height for better scaling?
-            let playerWidth = 32;
-            let playerHeight = 42;
-            let collectibleSize = 35;
-            let obstacleTractorWidth = 60;
-            let obstacleTractorHeight = 45;
-            let obstacleFamilyWidth = 30;
-            let obstacleFamilyHeight = 50;
-            const JOYSTICK_DEAD_ZONE = 10; // Pixels
-
-
-            // --- Assets ---
-            const assetsToLoad = {
-                player: { img: new Image(), loaded: false, src: 'assets/knight_jump.png' },
-                background: { img: new Image(), loaded: false, src: 'assets/background1.png'}, // ADDED Background
+            // --- Graphics Assets (Unchanged from original) ---
+            const assets = {
+                knight_run: { img: new Image(), loaded: false, src: 'assets/knight_run.gif' },
+                knight_jump: { img: new Image(), loaded: false, src: 'assets/knight_jump.png' },
+                stone: { img: new Image(), loaded: false, src: 'assets/stone.png' },
+                tractor: { img: new Image(), loaded: false, src: 'assets/tractor.png' },
+                family: { img: new Image(), loaded: false, src: 'assets/family.png' },
+                background1: { img: new Image(), loaded: false, src: 'assets/background1.png' },
+                background2: { img: new Image(), loaded: false, src: 'assets/background2.png' },
+                background3: { img: new Image(), loaded: false, src: 'assets/background3.png' },
                 therme: { img: new Image(), loaded: false, src: 'assets/therme.png' },
                 freibad: { img: new Image(), loaded: false, src: 'assets/freibad.png' },
                 kulturzentrum: { img: new Image(), loaded: false, src: 'assets/kulturzentrum.png' },
                 bahnhof: { img: new Image(), loaded: false, src: 'assets/bahnhof.png' },
                 post: { img: new Image(), loaded: false, src: 'assets/post.png' },
                 rathaus: { img: new Image(), loaded: false, src: 'assets/rathaus.png' },
-                burg: { img: new Image(), loaded: false, src: 'assets/burg.png' },
-                tractor: { img: new Image(), loaded: false, src: 'assets/tractor.png' },
-                family: { img: new Image(), loaded: false, src: 'assets/family.png' },
+                burg: { img: new Image(), loaded: false, src: 'assets/burg.png' }
             };
-            let assetsLoadedCount = 0;
-            const totalAssets = Object.keys(assetsToLoad).length;
-            let allAssetsLoaded = false;
-            let backgroundPattern = null; // For tiled background
+            let assetsLoadedCount = 0; let totalAssets = Object.keys(assets).length; let allAssetsLoaded = false;
 
-            // --- Game State ---
-            let score = 0;
-            let gameWon = false;
+            // --- Obstacle/POI Definitions (Unchanged from original) ---
+            const regularObstacleTypes = [ { assetKey: 'stone', widthPercent: OBSTACLE_STONE_WIDTH_PERCENT, heightPercent: OBSTACLE_STONE_HEIGHT_PERCENT }, { assetKey: 'tractor', widthPercent: OBSTACLE_TRACTOR_WIDTH_PERCENT, heightPercent: OBSTACLE_TRACTOR_HEIGHT_PERCENT }, { assetKey: 'family', widthPercent: OBSTACLE_FAMILY_WIDTH_PERCENT, heightPercent: OBSTACLE_FAMILY_HEIGHT_PERCENT } ];
+            const poiSignDimensions = { widthPercent: POI_SIGN_WIDTH_PERCENT, heightPercent: POI_SIGN_HEIGHT_PERCENT };
+            const poiData = [ /* ... poi data unchanged ... */
+                 { id: 1, name: "SteinTherme", info: "Known for its unique thermal saltwater pools and health benefits. | Bekannt für ihre einzigartigen Thermalsolebecken und Gesundheitsvorteile.", assetKey: 'therme' },
+                 { id: 2, name: "Freibad", info: "The popular outdoor swimming pool, perfect for summer days. | Das beliebte Freibad, perfekt für Sommertage.", assetKey: 'freibad' },
+                 { id: 3, name: "Kulturzentrum & Bibliothek", info: "A cultural hub with its distinctive red-brick facade and arched windows. | Ein kultureller Mittelpunkt mit markanter roter Backsteinfassade und Bogenfenstern.", assetKey: 'kulturzentrum' },
+                 { id: 4, name: "Fläming Bahnhof", info: "The local train station connecting Bad Belzig to the region. | Der lokale Bahnhof, der Bad Belzig mit der Region verbindet.", assetKey: 'bahnhof' },
+                 { id: 5, name: "Postmeilensäule", info: "A historic post mile marker showing distances on old postal routes. | Ein historischer Postmeilenstein, der Entfernungen auf alten Postrouten anzeigt.", assetKey: 'post' },
+                 { id: 6, name: "Rathaus & Tourist-Information", info: "The town hall, center of local government and visitor information. | Rathaus, Zentrum der Kommunalverwaltung und Besucherinformation.", assetKey: 'rathaus' },
+                 { id: 7, name: "Burg Eisenhardt", info: "Well-preserved medieval castle, vital to the region's history and defense. | Gut erhaltene mittelalterliche Burg, entscheidend für die Geschichte und Verteidigung der Region.", assetKey: 'burg' }
+             ];
 
-            // Player object - positions will be updated on resize
-            const player = {
-                x: 50, y: 300, // Initial values, will be adjusted
-                width: playerWidth, height: playerHeight,
-                velocityX: 0, velocityY: 0,
-                isGrounded: false,
-                spawnX: 50, spawnY: 300 // Relative spawn? Maybe %?
-            };
 
-            // Platforms - positions need to be relative or recalculated on resize
-            // Let's define them relative to initial 800x450 canvas for now
-            // We'll scale drawing later
-            const baseWidth = 800;
-            const baseHeight = 450;
-            let platforms = [
-                { x: 0, y: baseHeight - 20, width: baseWidth, height: 20, color: '#228B22' },
-                { x: 100, y: baseHeight - 100, width: 150, height: 15, color: '#A0522D' },
-                { x: 350, y: baseHeight - 180, width: 200, height: 15, color: '#A0522D' },
-                { x: 600, y: baseHeight - 120, width: 100, height: 15, color: '#A0522D' },
-                { x: 400, y: baseHeight - 260, width: 80, height: 15, color: '#A0522D' },
-                { x: 150, y: baseHeight - 330, width: 100, height: 15, color: '#A0522D' }
-            ];
+            // --- Asset Loading Functions (Unchanged) ---
+            function assetLoaded(assetKey) { console.log(`Asset loaded: ${assetKey}`); assets[assetKey].loaded = true; assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.log("All assets loaded."); allAssetsLoaded = true; if (currentGameState === GameState.LOADING) { initGame(); } } }
+            function assetLoadError(assetKey, event) { console.error(`Failed to load asset: ${assets[assetKey].src}. Check path and file existence. Event:`, event); alert(`Error loading image: ${assets[assetKey].src}\nGame might not display correctly.`); assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.warn("Finished loading assets, but some failed."); allAssetsLoaded = true; if (currentGameState === GameState.LOADING) { initGame(); } } }
+            function loadAssets() { console.log("Starting asset loading..."); currentGameState = GameState.LOADING; for (const key in assets) { if (Object.prototype.hasOwnProperty.call(assets, key) && assets[key].img) { assets[key].img.src = assets[key].src; assets[key].img.onload = () => assetLoaded(key); assets[key].img.onerror = (e) => assetLoadError(key, e); } } }
 
-            // Collectibles - positions relative to 800x450
-            let collectibles = [
-                { x: 150, y: baseHeight - 100 - collectibleSize - 10, assetKey: 'therme', collected: false },
-                { x: 450, y: baseHeight - 180 - collectibleSize - 10, assetKey: 'freibad', collected: false },
-                { x: 650, y: baseHeight - 120 - collectibleSize - 10, assetKey: 'bahnhof', collected: false },
-                { x: 420, y: baseHeight - 260 - collectibleSize - 10, assetKey: 'post', collected: false },
-                { x: 180, y: baseHeight - 330 - collectibleSize - 10, assetKey: 'rathaus', collected: false },
-                { x: 50, y: 50, assetKey: 'kulturzentrum', collected: false },
-                { x: 700, y: 50, assetKey: 'burg', collected: false }
-            ];
-            collectibles.forEach(c => { c.width = collectibleSize; c.height = collectibleSize; });
-            const totalCollectibles = collectibles.length;
-            totalCollectiblesSpan.textContent = totalCollectibles;
+            // --- High Score Handling (Unchanged) ---
+            function loadHighScore() { try { const savedScore = localStorage.getItem('ritterRunHighScore'); highScore = savedScore ? parseInt(savedScore, 10) : 0; if (isNaN(highScore)) highScore = 0; startHighScoreSpan.textContent = highScore; gameOverHighScoreSpan.textContent = highScore; } catch (e) { console.error("LS Error Load HS:", e); highScore = 0; } }
+            function saveHighScore() { if (score > highScore) { highScore = score; try { localStorage.setItem('ritterRunHighScore', highScore.toString()); gameOverHighScoreSpan.textContent = highScore; } catch (e) { console.error("LS Error Save HS:", e); } } }
 
-            // Obstacles - positions relative to 800x450
-            let obstacles = [
-                { x: 250, y: baseHeight - 20 - obstacleTractorHeight, width: obstacleTractorWidth, height: obstacleTractorHeight, assetKey: 'tractor' },
-                { x: 500, y: baseHeight - 20 - obstacleFamilyHeight, width: obstacleFamilyWidth, height: obstacleFamilyHeight, assetKey: 'family' }
-            ];
+            // --- Sound Playing Helper (Stub - Unchanged) ---
+            function playSound(soundId) { console.log(`Playing sound: ${soundId}`); }
 
-            // Input tracking
-            const keysPressed = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, ' ': false };
+            // --- Reset Game Variables ---
+            function resetGame() {
+                score = 0; playerLives = LIVES_START_COUNT; playerInvincibleUntil = 0; obstacles = [];
+                groundHeightPx = canvasHeight * GROUND_HEIGHT_PERCENT;
+                collisionLandingTolerancePx = canvasHeight * COLLISION_LANDING_TOLERANCE_FACTOR;
+                obstacleSpeed = canvasWidth * OBSTACLE_SPEED_FACTOR;
+                playerMaxDx = canvasWidth * PLAYER_MAX_DX_FACTOR;
+                playerAccel = canvasWidth * PLAYER_ACCEL_FACTOR;
+                player.gravity = canvasHeight / PLAYER_GRAVITY_FACTOR;
+                player.jumpPower = canvasHeight / PLAYER_JUMP_FACTOR;
 
-            // Touch control state
-            let joystickActive = false;
-            let joystickStartX = 0;
-            let joystickStartY = 0;
-            let joystickBaseRect = null;
-            let joystickRadius = 0;
-            let jumpButtonPressed = false; // Track jump button state
+                resizeCanvas(); // Ensure player size is correct
 
-            let lastTime = 0;
-            let scaleX = 1; // Scaling factors for drawing
-            let scaleY = 1;
+                player.x = canvasWidth * PLAYER_INITIAL_X_PERCENT;
+                player.y = canvasHeight - groundHeightPx - player.height; // Start on ground
+                player.dx = 0; player.dy = 0; player.grounded = true; // Start grounded
 
-            // --- Asset Loading ---
-            function assetLoaded(assetKey) {
-                console.log(`Asset loaded: ${assetKey}`);
-                assetsLoadedCount++;
-                // Create background pattern once loaded
-                if (assetKey === 'background' && assetsToLoad.background.loaded) {
-                     backgroundPattern = ctx.createPattern(assetsToLoad.background.img, 'repeat');
-                }
-                if (assetsLoadedCount === totalAssets) {
-                    console.log("All assets loaded.");
-                    allAssetsLoaded = true;
-                    resizeCanvas(); // Initial resize after assets (esp. background) are loaded
-                    lastTime = performance.now();
-                    requestAnimationFrame(gameLoop);
-                }
-            }
-            // AssetLoadError (same as before)
-            function assetLoadError(assetKey, event) {
-                console.error(`Failed to load asset: ${assetKey}. Event:`, event);
-                assetsLoadedCount++;
-                 if (assetsLoadedCount === totalAssets) {
-                    console.warn("Finished loading assets, but some may have failed.");
-                    allAssetsLoaded = true;
-                    resizeCanvas(); // Still resize and start
-                    lastTime = performance.now();
-                    requestAnimationFrame(gameLoop);
-                }
-            }
-            // LoadAssets (same as before)
-            function loadAssets() {
-                console.log("Loading assets...");
-                for (const key in assetsToLoad) {
-                    const asset = assetsToLoad[key];
-                    asset.img.onload = () => { asset.loaded = true; assetLoaded(key); };
-                    asset.img.onerror = (e) => assetLoadError(key, e);
-                    asset.img.src = asset.src;
-                }
+                nextSpeedIncreaseScore = SPEED_INCREASE_INTERVAL_SCORE;
+                bgX = 0; backgroundSequenceIndex = 0; nextBackgroundSwitchScore = BACKGROUND_SWITCH_SCORE_INTERVAL;
+                currentScoreSpan.textContent = score; currentLivesSpan.textContent = playerLives; nextObstacleSpawnTime = 0; nextPoiIndex = 0; isPaused = false; isPressingLeft = false; isPressingRight = false;
+                poiOverlay.classList.remove('visible'); knightImageEl.style.display = 'none'; currentKnightVisualState = null;
+                isTransitioningBackground = false; transitionStartTime = 0; previousBackgroundSequenceIndex = 0;
+                joystickActive = false; if(joystickKnob) joystickKnob.style.transform = 'translate(-50%, -50%)';
+                const titleElement = gameOverScreen.querySelector('h2'); if(titleElement) { titleElement.textContent = "Game Over!"; titleElement.style.color = '#f88'; }
+                worldScrollX = 0; // Reset world scroll
+
+                console.log(`Game Reset - Obstacle Speed: ${obstacleSpeed.toFixed(1)}`);
             }
 
-            // --- Canvas Resizing ---
-            function resizeCanvas() {
-                // Get the actual display size of the container
-                const displayWidth = gameContainer.clientWidth;
-                const displayHeight = gameContainer.clientHeight;
+            // --- Update Functions ---
 
-                // Update the canvas rendering resolution
-                canvas.width = displayWidth;
-                canvas.height = displayHeight;
+            // --- MODIFIED: updatePlayer to include platform logic ---
+            function updatePlayer(dt) {
+                // --- Horizontal Movement (same as original) ---
+                if (isPressingLeft) { player.dx -= playerAccel * dt; }
+                else if (isPressingRight) { player.dx += playerAccel * dt; }
+                else { player.dx *= PLAYER_FRICTION; if (Math.abs(player.dx) < 1) { player.dx = 0; } }
+                player.dx = Math.max(-playerMaxDx, Math.min(playerMaxDx, player.dx));
+                player.x += player.dx * dt;
 
-                // Calculate scaling factors based on original design size
-                scaleX = canvas.width / baseWidth;
-                scaleY = canvas.height / baseHeight;
+                // --- Boundary Checks (Horizontal - same as original) ---
+                if (player.x < 0) { player.x = 0; player.dx = 0; }
+                if (player.x + player.width > canvasWidth) { player.x = canvasWidth - player.width; player.dx = 0; }
 
-                // Adjust player size based on scale (optional, keeps pixel size consistent)
-                // player.width = playerWidth * scaleX;
-                // player.height = playerHeight * scaleY;
-                // collectibleSize = 35 * Math.min(scaleX, scaleY); // Scale collectibles too
+                // --- Vertical Movement (Gravity always applies) ---
+                player.dy += player.gravity * dt * 60; // Apply gravity (using original scaling)
+                let potentialY = player.y + player.dy * dt; // Calculate potential next Y
 
-                // Update joystick dimensions if needed
-                if (joystickBase) {
-                    joystickBaseRect = joystickBase.getBoundingClientRect();
-                    joystickRadius = joystickBaseRect.width / 2 - joystickKnob.offsetWidth / 2;
+                // Assume not grounded until proven otherwise
+                player.grounded = false;
+                let onPlatform = false; // Flag to check if landed specifically on a platform
+
+                // --- Platform Collision Check ---
+                for (const platform of platforms) {
+                    // Calculate platform's current screen X position
+                    const platformScreenX = platform.worldX - worldScrollX;
+
+                    // Basic broad-phase check (is platform potentially near player?)
+                    if (platformScreenX < player.x + player.width &&
+                        platformScreenX + platform.width > player.x)
+                    {
+                        // Check for vertical collision (landing)
+                        // Is player moving down? Is player's *current* bottom edge above or near the platform top?
+                        // Is player's *potential* bottom edge below or on the platform top?
+                        if (player.dy >= 0 &&
+                            (player.y + player.height) <= platform.y + collisionLandingTolerancePx && // Was above or near
+                            (potentialY + player.height) >= platform.y) // Will be below or on
+                        {
+                            // Check horizontal overlap precisely for landing
+                            if (player.x < platformScreenX + platform.width && player.x + player.width > platformScreenX) {
+                                // Landed on this platform!
+                                potentialY = platform.y - player.height; // Snap Y position
+                                player.dy = 0; // Stop vertical velocity
+                                player.grounded = true;
+                                onPlatform = true;
+                                // console.log("Landed on platform"); // Debug
+                                break; // Stop checking other platforms once landed
+                            }
+                        }
+                        // Optional: Add checks for hitting sides/bottom of platforms if needed
+                    }
                 }
 
-                 // Re-create background pattern with potentially new canvas size context if needed
-                 if (assetsToLoad.background.loaded) {
-                      backgroundPattern = ctx.createPattern(assetsToLoad.background.img, 'repeat');
+                // Apply the calculated potential Y (potentially snapped by platform)
+                player.y = potentialY;
+
+                // --- Ground Collision Check (only if not already grounded on a platform) ---
+                const groundLevel = canvasHeight - groundHeightPx - player.height;
+                if (!player.grounded && player.y >= groundLevel) {
+                    player.y = groundLevel;
+                    player.dy = 0;
+                    player.grounded = true;
+                    // console.log("Landed on ground"); // Debug
+                }
+            } // --- End of updatePlayer ---
+
+
+            // --- MODIFIED: updateObstacles to scroll world ---
+            function updateObstacles(dt, currentTime) {
+                 // Calculate world scroll amount based on obstacle speed
+                 const scrollAmount = obstacleSpeed * dt;
+                 worldScrollX += scrollAmount; // Update total scroll
+
+                 // Spawn Logic (mostly unchanged, uses world coordinates)
+                 if (currentTime >= nextObstacleSpawnTime) {
+                    let newObjectData = null;
+                    const anyPoiAssetLoaded = poiData.some(poi => assets[poi.assetKey]?.loaded);
+                    const willSpawnPOI = Math.random() < POI_SPAWN_CHANCE;
+                    const canSpawnPOI = nextPoiIndex < poiData.length && anyPoiAssetLoaded;
+                    const spawnPOI = willSpawnPOI && canSpawnPOI;
+
+                    if (spawnPOI) {
+                        const poi = poiData[nextPoiIndex];
+                        if (assets[poi.assetKey] && assets[poi.assetKey].loaded) {
+                            const objWidth = canvasWidth * poiSignDimensions.widthPercent;
+                            const objHeight = canvasHeight * poiSignDimensions.heightPercent;
+                            // Spawn using world coordinates (relative to scroll)
+                            const spawnWorldX = worldScrollX + canvasWidth;
+                            newObjectData = {
+                                isPOI: true, poiId: poi.id, passed: false,
+                                worldX: spawnWorldX, // Store world X
+                                y: canvasHeight - groundHeightPx - objHeight,
+                                width: objWidth, height: objHeight,
+                                assetKey: poi.assetKey
+                            };
+                            nextPoiIndex++;
+                        }
+                    } else {
+                        if (regularObstacleTypes.length > 0) {
+                            const typeIndex = Math.floor(Math.random() * regularObstacleTypes.length);
+                            const type = regularObstacleTypes[typeIndex];
+                            if (assets[type.assetKey] && assets[type.assetKey].loaded) {
+                                const objWidth = canvasWidth * type.widthPercent;
+                                const objHeight = canvasHeight * type.heightPercent;
+                                const spawnWorldX = worldScrollX + canvasWidth;
+                                newObjectData = {
+                                    isPOI: false,
+                                    worldX: spawnWorldX, // Store world X
+                                    y: canvasHeight - groundHeightPx - objHeight,
+                                    width: objWidth, height: objHeight,
+                                    assetKey: type.assetKey, isKnocked: false
+                                };
+                                if (type.assetKey === 'tractor') {
+                                    newObjectData.isOscillating = true;
+                                    newObjectData.oscillationPhase = Math.random() * Math.PI * 2;
+                                    newObjectData.baseWorldX = spawnWorldX; // Store base world X for oscillation
+                                }
+                            }
+                        }
+                    }
+                    if (newObjectData) { obstacles.push(newObjectData); }
+                    const nextSpawnDelay = OBSTACLE_BASE_SPAWN_TIME_MS + (Math.random() * 500 - 250);
+                    nextObstacleSpawnTime = currentTime + Math.max(OBSTACLE_MIN_SPAWN_TIME_MS, nextSpawnDelay);
                  }
 
-                console.log(`Canvas resized to: ${canvas.width}x${canvas.height}, Scale: ${scaleX.toFixed(2)}, ${scaleY.toFixed(2)}`);
-            }
+                 // Update existing obstacles (position relative to worldScrollX)
+                 for (let i = obstacles.length - 1; i >= 0; i--) {
+                     const obj = obstacles[i];
 
+                     // Calculate current screen X for logic/drawing
+                     let screenX = obj.worldX - worldScrollX;
 
-            // --- Input Handling ---
-            function handleKeyDown(e) { if (keysPressed.hasOwnProperty(e.key)) { e.preventDefault(); keysPressed[e.key] = true; } }
-            function handleKeyUp(e) { if (keysPressed.hasOwnProperty(e.key)) { e.preventDefault(); keysPressed[e.key] = false; } }
+                     if (obj.isKnocked) {
+                         obj.y += (canvasHeight * 1.25) * dt; // Fall when knocked
+                     } else if (obj.assetKey === 'tractor') {
+                         // Oscillate based on time, relative to its base world position
+                         obj.oscillationPhase += TRACTOR_OSC_FREQUENCY * 2 * Math.PI * dt;
+                         const amplitudePx = canvasWidth * TRACTOR_OSC_AMPLITUDE_FACTOR;
+                         const xOffset = amplitudePx * Math.sin(obj.oscillationPhase);
+                         // Update worldX based on oscillation from baseWorldX
+                         obj.worldX = obj.baseWorldX + xOffset;
+                         screenX = obj.worldX - worldScrollX; // Recalculate screenX
+                     }
+                     // No need to explicitly subtract scrollAmount here, as we use worldX - worldScrollX
 
-            // --- Touch Input ---
-            function handleJoystickStart(e) {
-                if (gameWon) return;
-                e.preventDefault();
-                joystickBaseRect = joystickBase.getBoundingClientRect();
-                joystickRadius = joystickBaseRect.width / 2 - joystickKnob.offsetWidth / 2;
-                joystickActive = true;
-                const touch = e.touches[0];
-                const baseCenterX = joystickBaseRect.left + joystickBaseRect.width / 2;
-                const baseCenterY = joystickBaseRect.top + joystickBaseRect.height / 2;
-                joystickStartX = touch.clientX - baseCenterX;
-                joystickStartY = touch.clientY - baseCenterY;
-                handleJoystickMove(e); // Update knob position immediately
-            }
-
-            function handleJoystickMove(e) {
-                if (!joystickActive || gameWon) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                const baseCenterX = joystickBaseRect.left + joystickBaseRect.width / 2;
-                const baseCenterY = joystickBaseRect.top + joystickBaseRect.height / 2;
-                let deltaX = touch.clientX - baseCenterX;
-                let deltaY = touch.clientY - baseCenterY; // Keep track of Y for potential future use
-                const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                let clampedX = deltaX;
-                let clampedY = deltaY;
-
-                if (dist > joystickRadius) {
-                    const scale = joystickRadius / dist;
-                    clampedX = deltaX * scale;
-                    clampedY = deltaY * scale;
-                }
-                joystickKnob.style.transform = `translate(calc(-50% + ${clampedX}px), calc(-50% + ${clampedY}px))`;
-
-                // Update keysPressed based on joystick horizontal position
-                if (deltaX < -JOYSTICK_DEAD_ZONE) {
-                    keysPressed.ArrowLeft = true;
-                    keysPressed.ArrowRight = false;
-                } else if (deltaX > JOYSTICK_DEAD_ZONE) {
-                    keysPressed.ArrowRight = true;
-                    keysPressed.ArrowLeft = false;
-                } else {
-                    keysPressed.ArrowLeft = false;
-                    keysPressed.ArrowRight = false;
-                }
-            }
-
-            function handleJoystickEnd(e) {
-                 if (!joystickActive) return;
-                 e.preventDefault();
-                 joystickKnob.style.transform = 'translate(-50%, -50%)'; // Reset knob
-                 joystickActive = false;
-                 keysPressed.ArrowLeft = false; // Stop movement
-                 keysPressed.ArrowRight = false;
-            }
-
-            function handleJumpPress(e) {
-                if (gameWon) return;
-                e.preventDefault();
-                jumpButtonPressed = true;
-                // Directly set jump key state for update loop to handle
-                keysPressed[' '] = true; // Use space key state for jump button
-            }
-
-            function handleJumpRelease(e) {
-                 if (gameWon) return;
-                 e.preventDefault();
-                 jumpButtonPressed = false;
-                 keysPressed[' '] = false; // Release space key state
-            }
-
-
-            // --- Collision Helper (AABB - Unchanged) ---
-            function checkCollision(rect1, rect2) { /* ... same as before ... */
-                return rect1.x < rect2.x + rect2.width &&
-                       rect1.x + rect1.width > rect2.x &&
-                       rect1.y < rect2.y + rect2.height &&
-                       rect1.y + rect1.height > rect2.y;
-            }
-
-            // --- Reset Player (Unchanged) ---
-            function resetPlayer() { /* ... same as before ... */
-                console.log("Player reset!");
-                player.x = player.spawnX;
-                player.y = player.spawnY;
-                player.velocityX = 0;
-                player.velocityY = 0;
-                player.isGrounded = false;
-            }
-
-            // --- Game Logic ---
-            function update(dt) {
-                if (!allAssetsLoaded || dt > 0.1 || gameWon) return;
-
-                // --- Horizontal Movement (Driven by keysPressed) ---
-                player.velocityX = 0;
-                if (keysPressed.ArrowLeft) { player.velocityX = -playerSpeed; }
-                if (keysPressed.ArrowRight) { player.velocityX = playerSpeed; }
-                let potentialX = player.x + player.velocityX * dt;
-
-                // --- Vertical Movement (Gravity) ---
-                player.velocityY += gravity * dt;
-                let potentialY = player.y + player.velocityY * dt;
-
-                player.isGrounded = false;
-
-                // --- Collision Detection & Resolution with Platforms ---
-                // Important: Collision checks now use the base coordinates
-                let adjustedY = potentialY;
-                let adjustedX = potentialX;
-
-                for (const platform of platforms) {
-                     // Scale player rect for collision check against base coordinates
-                     const playerRect = {
-                         x: potentialX, y: potentialY,
-                         width: player.width, height: player.height
-                     };
-                     // Platform rect uses base coordinates directly
-                     const platformRect = {
-                         x: platform.x, y: platform.y,
-                         width: platform.width, height: platform.height
-                     };
-
-                    if (checkCollision(playerRect, platformRect)) {
-                        // Vertical Resolution
-                        if (player.velocityY >= 0 && (player.y + player.height) <= platform.y + 1) {
-                            adjustedY = platform.y - player.height;
-                            player.velocityY = 0;
-                            player.isGrounded = true;
-                        } else if (player.velocityY < 0 && player.y >= (platform.y + platform.height - 1)) {
-                             adjustedY = platform.y + platform.height;
-                             player.velocityY = 0;
-                        }
-
-                        // Horizontal Resolution (recheck with adjusted Y)
-                         const playerVerticallyAdjustedRect = { x: potentialX, y: adjustedY, width: player.width, height: player.height };
-                         if(checkCollision(playerVerticallyAdjustedRect, platformRect)) {
-                             if (player.velocityX > 0 && (player.x + player.width) <= platform.x + 1) {
-                                 adjustedX = platform.x - player.width;
-                                 player.velocityX = 0;
-                             } else if (player.velocityX < 0 && player.x >= (platform.x + platform.width - 1)) {
-                                 adjustedX = platform.x + platform.width;
-                                 player.velocityX = 0;
+                     // POI Trigger Check (based on screenX)
+                     if (obj.isPOI && !obj.passed) {
+                         const triggerPoint = screenX; // Trigger when player passes screen position
+                         const playerRightEdge = player.x + player.width;
+                         if (playerRightEdge > triggerPoint) {
+                             obj.passed = true;
+                             if (obj.poiId === FINAL_POI_ID) {
+                                 // Game Win Logic (same as original)
+                                 playSound('win'); currentGameState = GameState.GAME_OVER; saveHighScore();
+                                 const titleElement = gameOverScreen.querySelector('h2');
+                                 if(titleElement) { titleElement.textContent = "Burg Eisenhardt Reached! / Burg Eisenhardt erreicht!"; titleElement.style.color = 'var(--bb-yellow)'; }
+                                 finalScoreSpan.textContent = score; gameOverHighScoreSpan.textContent = highScore; gameOverScreen.classList.remove('hidden'); scoreDisplay.classList.add('hidden'); livesDisplay.classList.add('hidden'); knightImageEl.style.display = 'none'; if (poiOverlay.classList.contains('visible')) { closePoiOverlay(); }
+                             } else {
+                                 displayPOIInfo(obj.poiId); score += 50; currentScoreSpan.textContent = score; playSound('poi');
                              }
                          }
+                     }
+
+                     // Off-screen check (based on screenX)
+                     if (screenX + obj.width < -100 || obj.y > canvasHeight + obj.height + 50) {
+                         obstacles.splice(i, 1);
+                     }
+                 }
+             } // --- End of updateObstacles ---
+
+
+            // --- MODIFIED: checkCollisions to check obstacles only ---
+            // Platform collisions are handled in updatePlayer
+            function checkCollisions() {
+                const now = performance.now();
+                if (now < playerInvincibleUntil) { return { type: CollisionType.NONE }; }
+
+                const playerRect = { x: player.x + (player.width * 0.1), y: player.y + (player.height * 0.1), width: player.width * 0.8, height: player.height * 0.8, bottom: player.y + player.height, right: player.x + player.width };
+
+                for (const obstacle of obstacles) {
+                    if (obstacle.isPOI || obstacle.isKnocked) { continue; }
+
+                    // Calculate obstacle's current screen position
+                    const obstacleScreenX = obstacle.worldX - worldScrollX;
+
+                    const obstacleRect = { x: obstacleScreenX, y: obstacle.y, width: obstacle.width, height: obstacle.height, top: obstacle.y, right: obstacleScreenX + obstacle.width };
+
+                    // Standard AABB collision check
+                    if (playerRect.x < obstacleRect.right && playerRect.right > obstacleRect.x && playerRect.y < obstacleRect.y + obstacleRect.height && playerRect.bottom > obstacleRect.top)
+                    {
+                        // Check for landing on top (bounce) - requires precise check
+                         const isFalling = player.dy >= 0;
+                         // Check if player bottom was near obstacle top in previous frame relative to current positions
+                         const landedOnTop = isFalling &&
+                                             playerRect.bottom >= obstacleRect.top &&
+                                             playerRect.bottom <= obstacleRect.top + collisionLandingTolerancePx;
+
+
+                        if (landedOnTop) {
+                            // console.log(`Collision: TOP on ${obstacle.assetKey}`); // Debug
+                            return { type: CollisionType.TOP, obstacle: obstacle };
+                        } else {
+                            // Any other overlap is a side collision
+                            // console.warn(`Collision: SIDE with ${obstacle.assetKey}`); // Debug
+                            return { type: CollisionType.SIDE };
+                        }
                     }
                 }
-                player.x = adjustedX;
-                player.y = adjustedY;
+                return { type: CollisionType.NONE }; // No obstacle collision
+            } // --- End of checkCollisions ---
 
-                // --- Jumping (Driven by keysPressed) ---
-                if ((keysPressed.ArrowUp || keysPressed[' ']) && player.isGrounded) {
-                    player.velocityY = -jumpPower;
-                    player.isGrounded = false;
-                    // Important: Reset the key state immediately after jump starts if using button press
-                    // Otherwise player might multi-jump if button held
-                    if (jumpButtonPressed) {
-                         keysPressed[' '] = false; // Prevent multi-jump from button hold
+
+            // --- updateScoreAndSpeed (Unchanged, uses global score) ---
+            function updateScoreAndSpeed() {
+                score++; currentScoreSpan.textContent = score;
+                if (!isTransitioningBackground && score >= nextBackgroundSwitchScore) {
+                    previousBackgroundSequenceIndex = backgroundSequenceIndex;
+                    backgroundSequenceIndex = (backgroundSequenceIndex + 1) % backgroundSequence.length;
+                    if (previousBackgroundSequenceIndex !== backgroundSequenceIndex) {
+                        isTransitioningBackground = true;
+                        transitionStartTime = performance.now();
                     }
+                    nextBackgroundSwitchScore += BACKGROUND_SWITCH_SCORE_INTERVAL;
                 }
-
-                // --- Collision with Collectibles ---
-                 for (let i = collectibles.length - 1; i >= 0; i--) {
-                    const item = collectibles[i];
-                     // Scale player rect for collision check
-                     const playerHitbox = { x: player.x, y: player.y, width: player.width, height: player.height };
-                     // Scale item rect for collision check
-                     const itemHitbox = { x: item.x, y: item.y, width: item.width, height: item.height };
-
-                    if (!item.collected && checkCollision(playerHitbox, itemHitbox)) {
-                        item.collected = true;
-                        score++;
-                        scoreSpan.textContent = score;
-                        if (score === totalCollectibles) { gameWon = true; console.log("YOU WIN!"); }
-                    }
-                }
-
-                // --- Collision with Obstacles ---
-                for (const obs of obstacles) {
-                     const playerHitbox = { x: player.x, y: player.y, width: player.width, height: player.height };
-                     const obsHitbox = { x: obs.x, y: obs.y, width: obs.width, height: obs.height };
-                    if (checkCollision(playerHitbox, obsHitbox)) {
-                        resetPlayer();
-                        break;
-                    }
-                }
-
-                // --- Boundary Checking (using base coordinates) ---
-                if (player.x < 0) { player.x = 0; player.velocityX = 0; }
-                if (player.x + player.width > baseWidth) { player.x = baseWidth - player.width; player.velocityX = 0; }
-                if (player.y > baseHeight + 100) { resetPlayer(); }
-                if (player.y < 0) { player.y = 0; if(player.velocityY < 0) player.velocityY = 0; }
-            }
-
-            // --- Drawing ---
-            function draw() {
-                if (!allAssetsLoaded) { /* Loading message... */ return; }
-
-                // Clear canvas
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // --- Draw Background ---
-                if (backgroundPattern) {
-                    ctx.fillStyle = backgroundPattern;
-                    ctx.save();
-                    // Optional: Translate pattern if needed for parallax/scrolling later
-                    // ctx.translate(offsetX, offsetY);
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.restore();
-                } else if (assetsToLoad.background.loaded) {
-                    // Fallback: Stretch background if pattern failed
-                    ctx.drawImage(assetsToLoad.background.img, 0, 0, canvas.width, canvas.height);
-                } else {
-                    // Fallback color if image not loaded
-                     ctx.fillStyle = '#87CEEB';
-                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-
-
-                // --- Apply Scaling for Game Objects ---
-                ctx.save();
-                ctx.scale(scaleX, scaleY); // Apply scaling for all subsequent draws
-
-                // Draw platforms (using base coordinates, scaled by ctx.scale)
-                platforms.forEach(platform => {
-                    ctx.fillStyle = platform.color || '#666';
-                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                });
-
-                 // Draw obstacles (using base coordinates)
-                 obstacles.forEach(obs => {
-                    const asset = assetsToLoad[obs.assetKey];
-                    if (asset && asset.loaded) {
-                        ctx.drawImage(asset.img, obs.x, obs.y, obs.width, obs.height);
-                    } else { ctx.fillStyle = 'purple'; ctx.fillRect(obs.x, obs.y, obs.width, obs.height); }
-                });
-
-                // Draw collectibles (using base coordinates)
-                collectibles.forEach(item => {
-                    if (!item.collected) {
-                        const asset = assetsToLoad[item.assetKey];
-                        if (asset && asset.loaded) {
-                            ctx.drawImage(asset.img, item.x, item.y, item.width, item.height);
-                        } else { ctx.fillStyle = 'gold'; ctx.fillRect(item.x, item.y, item.width, item.height); }
-                    }
-                });
-
-                // Draw player (using base coordinates)
-                const playerAsset = assetsToLoad.player;
-                if (playerAsset.loaded) {
-                    ctx.drawImage(playerAsset.img, player.x, player.y, player.width, player.height);
-                } else { ctx.fillStyle = 'red'; ctx.fillRect(player.x, player.y, player.width, player.height); }
-
-                // --- Restore context before drawing UI that shouldn't be scaled ---
-                ctx.restore();
-
-
-                 // Draw Win Message (Not scaled)
-                 if (gameWon) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
-                    ctx.font = `bold ${Math.min(30, 5 * scaleX)}px sans-serif`; // Scale font size slightly
-                    ctx.fillStyle = '#FFFF00';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2);
-                    ctx.font = `${Math.min(20, 4 * scaleX)}px sans-serif`;
-                     ctx.fillStyle = 'white';
-                    ctx.fillText('All items collected!', canvas.width / 2, canvas.height / 2 + 30 * scaleY);
+                 // Speed increase logic remains the same
+                 if (score >= nextSpeedIncreaseScore) {
+                     const speedIncreaseFactor = 1.02; // Slightly slower increase?
+                     obstacleSpeed *= speedIncreaseFactor;
+                     // Optionally increase player speed cap too?
+                     // playerMaxDx *= speedIncreaseFactor;
+                     // playerAccel *= speedIncreaseFactor;
+                     nextSpeedIncreaseScore += SPEED_INCREASE_INTERVAL_SCORE;
+                     console.log(`Speed increased! New obstacle speed: ${obstacleSpeed.toFixed(1)}`);
                  }
             }
 
-            // --- Game Loop ---
-            function gameLoop(timestamp) {
-                const dt = (timestamp - lastTime) / 1000;
-                lastTime = timestamp;
+            // --- Draw Functions ---
 
-                update(dt);
-                draw();
+            // --- drawBackground (Unchanged) ---
+            function drawBackground(dt) {
+                 const now = performance.now();
+                 // Use worldScrollX for consistent background movement
+                 const bgMovement = obstacleSpeed * BACKGROUND_SCROLL_SPEED_FACTOR * dt;
+                 // bgX calculation needs adjustment if based on worldScrollX, let's stick to original for now
+                 bgX -= bgMovement;
+                 if (bgX <= -canvasWidth) { bgX += canvasWidth; }
+
+                 ctx.fillStyle = '#87CEEB'; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                 let currentAssetKey = '';
+                 if (isTransitioningBackground) {
+                     const elapsed = now - transitionStartTime; const progress = Math.min(1, elapsed / BACKGROUND_TRANSITION_DURATION);
+                     const oldActualIndex = backgroundSequence[previousBackgroundSequenceIndex]; const oldAssetKey = `background${oldActualIndex + 1}`; const oldAsset = assets[oldAssetKey];
+                     const newActualIndex = backgroundSequence[backgroundSequenceIndex]; const newAssetKey = `background${newActualIndex + 1}`; const newAsset = assets[newAssetKey];
+                     if (oldAsset && oldAsset.loaded) { ctx.globalAlpha = 1 - progress; ctx.drawImage(oldAsset.img, bgX, 0, canvasWidth, canvasHeight); ctx.drawImage(oldAsset.img, bgX + canvasWidth, 0, canvasWidth, canvasHeight); }
+                     if (newAsset && newAsset.loaded) { ctx.globalAlpha = progress; ctx.drawImage(newAsset.img, bgX, 0, canvasWidth, canvasHeight); ctx.drawImage(newAsset.img, bgX + canvasWidth, 0, canvasWidth, canvasHeight); currentAssetKey = newAssetKey; }
+                     ctx.globalAlpha = 1.0; if (progress >= 1) { isTransitioningBackground = false; }
+                 } else {
+                     const actualBackgroundIndex = backgroundSequence[backgroundSequenceIndex]; currentAssetKey = `background${actualBackgroundIndex + 1}`; const currentAsset = assets[currentAssetKey];
+                     if (currentAsset && currentAsset.loaded) { ctx.globalAlpha = 1.0; ctx.drawImage(currentAsset.img, bgX, 0, canvasWidth, canvasHeight); ctx.drawImage(currentAsset.img, bgX + canvasWidth, 0, canvasWidth, canvasHeight); }
+                 }
+                 // Draw Ground (same as original)
+                 const groundGradient = ctx.createLinearGradient(0, canvasHeight - groundHeightPx, 0, canvasHeight);
+                 groundGradient.addColorStop(0, '#5a8a36'); groundGradient.addColorStop(0.3, '#446d20'); groundGradient.addColorStop(1, '#6b4423');
+                 ctx.fillStyle = groundGradient; ctx.fillRect(0, canvasHeight - groundHeightPx, canvasWidth, groundHeightPx);
+             }
+
+            // --- MODIFIED: drawObstacles to use screen coordinates ---
+            function drawObstacles() {
+                for (const obj of obstacles) {
+                    const asset = assets[obj.assetKey];
+                    if (asset && asset.loaded) {
+                        // Calculate screen X position for drawing
+                        const screenX = obj.worldX - worldScrollX;
+                        // Only draw if on screen
+                        if (screenX < canvasWidth && screenX + obj.width > 0) {
+                             ctx.drawImage(asset.img, screenX, obj.y, obj.width, obj.height);
+                        }
+                    } else {
+                         // Fallback drawing (optional)
+                         // const screenX = obj.worldX - worldScrollX;
+                         // if (screenX < canvasWidth && screenX + obj.width > 0) {
+                         //     ctx.fillStyle = obj.isPOI ? 'blue' : 'red';
+                         //     ctx.fillRect(screenX, obj.y, obj.width, obj.height);
+                         // }
+                    }
+                }
+            }
+
+            // --- NEW: drawPlatforms ---
+            function drawPlatforms() {
+                for (const platform of platforms) {
+                    // Calculate screen X position for drawing
+                    const screenX = platform.worldX - worldScrollX;
+                    // Only draw if potentially on screen
+                    if (screenX < canvasWidth && screenX + platform.width > 0) {
+                        ctx.fillStyle = platform.color || '#666'; // Use defined color or default
+                        ctx.fillRect(screenX, platform.y, platform.width, platform.height);
+                    }
+                }
+            }
+
+
+            // --- updateKnightVisuals (Unchanged, uses player.x, player.y) ---
+            function updateKnightVisuals() {
+                 const now = performance.now();
+                 let targetState = player.grounded ? 'run' : 'jump';
+                 let targetSrc = player.grounded ? assets.knight_run.src : assets.knight_jump.src;
+                 if (targetState !== currentKnightVisualState || !knightImageEl.src) {
+                     if ((targetState === 'run' && assets.knight_run.loaded) || (targetState === 'jump' && assets.knight_jump.loaded)) {
+                         if (knightImageEl.src !== targetSrc) { knightImageEl.src = targetSrc; }
+                         currentKnightVisualState = targetState;
+                     }
+                 }
+                 let currentOpacity = 1;
+                 if (now < playerInvincibleUntil) { if (Math.floor(now / 100) % 2 !== 0) { currentOpacity = 0.4; } }
+                 knightImageEl.style.opacity = currentOpacity;
+                 knightImageEl.style.left = `${player.x}px`; knightImageEl.style.top = `${player.y}px`;
+                 knightImageEl.style.width = `${player.width}px`; knightImageEl.style.height = `${player.height}px`;
+                 if (currentGameState === GameState.PLAYING || currentGameState === GameState.GAME_OVER || currentGameState === GameState.MENU) {
+                     if (knightImageEl.style.display === 'none') { knightImageEl.style.display = 'block'; }
+                 } else { knightImageEl.style.display = 'none'; }
+             }
+
+            // --- displayPOIInfo & closePoiOverlay (Unchanged) ---
+            function displayPOIInfo(poiId) { /* ... same as original ... */
+                 console.log(">>> Entered displayPOIInfo. Pausing game.");
+                 const poi = poiData.find(p => p.id === poiId);
+                 if (!poi) { console.warn(`POI data not found for ID: ${poiId}`); return; }
+                 isPaused = true; poiNameEl.textContent = poi.name;
+                 const infoParts = poi.info.split('|').map(s => s.trim());
+                 const formattedInfo = infoParts.join('<br><br>');
+                 poiInfoTextEl.innerHTML = formattedInfo; poiOverlay.classList.add('visible');
+                 console.log(">>> Added 'visible' class to poiOverlay. displayPOIInfo finished.");
+            }
+            function closePoiOverlay() { /* ... same as original ... */
+                 console.log(">>> Entered closePoiOverlay. Removing visible class, resuming game.");
+                 poiOverlay.classList.remove('visible'); isPaused = false; lastTime = performance.now();
+                 console.log(">>> Closed POI Overlay. Game RESUMED.");
+            }
+
+            // --- MODIFIED: gameLoop to include platform drawing ---
+            function gameLoop(timestamp) {
+                const dt = (timestamp - lastTime) / 1000 || 0;
+                if (!isPaused) { lastTime = timestamp; }
+
+                if (currentGameState === GameState.PLAYING && !isPaused) {
+                    let collisionHandledThisFrame = false;
+                    const collisionResult = checkCollisions(); // Check obstacle collisions
+
+                    if (collisionResult.type === CollisionType.SIDE) {
+                        playSound('hit'); playerLives--; currentLivesSpan.textContent = playerLives; collisionHandledThisFrame = true;
+                        if (playerLives > 0) {
+                            player.y = canvasHeight - groundHeightPx - player.height; // Reset to ground after hit
+                            player.dy = 0; player.grounded = true;
+                            playerInvincibleUntil = performance.now() + INVINCIBILITY_DURATION_MS;
+                        } else {
+                            // Game Over logic (same as original)
+                            currentGameState = GameState.GAME_OVER; saveHighScore(); finalScoreSpan.textContent = score; gameOverHighScoreSpan.textContent = highScore;
+                            const titleElement = gameOverScreen.querySelector('h2'); if(titleElement) { titleElement.textContent = "Game Over!"; titleElement.style.color = '#f88'; }
+                            gameOverScreen.classList.remove('hidden'); scoreDisplay.classList.add('hidden'); livesDisplay.classList.add('hidden'); knightImageEl.style.display = 'none'; if (poiOverlay.classList.contains('visible')) { closePoiOverlay(); }
+                        }
+                    } else if (collisionResult.type === CollisionType.TOP) {
+                        // Bounce off obstacle (same as original)
+                        player.y = collisionResult.obstacle.y - player.height;
+                        player.dy = player.jumpPower * PLAYER_BOUNCE_POWER_MULTIPLIER;
+                        player.grounded = false; // Now airborne after bounce
+                        playSound('bounce'); collisionResult.obstacle.isKnocked = true;
+                        updatePlayer(dt); // Update player immediately after bounce
+                        collisionHandledThisFrame = true;
+                    }
+
+                    // Update player (handles gravity, movement, platform collision)
+                    // Only call if no bounce collision occurred this frame, as bounce calls it too
+                    if (!collisionHandledThisFrame) {
+                         updatePlayer(dt);
+                    }
+
+                    // Update obstacles (spawning, position) and world scroll
+                    if (currentGameState === GameState.PLAYING) {
+                        updateObstacles(dt, timestamp);
+                        updateScoreAndSpeed(); // Update score based on time/distance
+                    }
+                }
+
+                // --- Drawing ---
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                drawBackground(dt);
+                drawPlatforms(); // Draw platforms first
+                drawObstacles(); // Draw obstacles/POIs
+                updateKnightVisuals(); // Update/draw player sprite (HTML element)
+
+                if (currentGameState === GameState.LOADING) {
+                    ctx.fillStyle = 'white'; ctx.font = '20px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('Loading Assets...', canvasWidth / 2, canvasHeight / 2);
+                }
 
                 requestAnimationFrame(gameLoop);
             }
 
-            // --- Initialization ---
-            function init() {
-                console.log("Initializing mobile enhanced platformer...");
-                // Keyboard Listeners
-                window.addEventListener('keydown', handleKeyDown);
-                window.addEventListener('keyup', handleKeyUp);
-                // Touch Listeners
-                joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false });
-                joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false });
-                joystickContainer.addEventListener('touchend', handleJoystickEnd, { passive: false });
-                joystickContainer.addEventListener('touchcancel', handleJoystickEnd, { passive: false }); // Handle cancelled touches
-                jumpButton.addEventListener('touchstart', handleJumpPress, { passive: false });
-                jumpButton.addEventListener('touchend', handleJumpRelease, { passive: false });
-                jumpButton.addEventListener('touchcancel', handleJumpRelease, { passive: false });
+            // --- startGame (Unchanged) ---
+            function startGame() {
+                 console.log("Attempting startGame(). Current state:", currentGameState, "Assets loaded?", allAssetsLoaded);
+                 if (currentGameState === GameState.PLAYING || !allAssetsLoaded) { console.log("startGame() aborted."); return; }
+                 console.log("Executing startGame()..."); resetGame(); currentGameState = GameState.PLAYING;
+                 startScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden'); scoreDisplay.classList.remove('hidden'); livesDisplay.classList.remove('hidden'); knightImageEl.style.display = 'block'; knightImageEl.style.opacity = '1'; currentKnightVisualState = null; updateKnightVisuals(); playSound('start'); lastTime = performance.now();
+             }
+            // --- restartGame (Unchanged) ---
+            function restartGame() {
+                 console.log("Attempting restartGame(). Current state:", currentGameState);
+                 if (currentGameState === GameState.PLAYING || !allAssetsLoaded) return;
+                 console.log("Executing restartGame()..."); startGame();
+             }
 
-                // Resize Listener
-                window.addEventListener('resize', resizeCanvas);
-                // Initial load
-                loadAssets(); // Load assets; resize & game loop start on completion
+            // --- MODIFIED: handleJumpInput checks player.grounded ---
+            function handleJumpInput() {
+                console.log("handleJumpInput called. State:", currentGameState, "Paused:", isPaused, "Grounded:", player.grounded);
+                // Allow jump only when playing, not paused, and grounded (on floor or platform)
+                if (currentGameState === GameState.PLAYING && !isPaused && player.grounded) {
+                    player.dy = player.jumpPower;
+                    player.grounded = false; // Player is now airborne
+                    playSound('jump');
+                }
             }
 
-            // --- Start the game ---
-            document.addEventListener('DOMContentLoaded', init);
+            // --- Input Event Handlers (Unchanged logic, but jump now checks grounded) ---
+            function handleKeyDown(e) {
+                 if ((e.key === 'Enter' || e.keyCode === 13) && isPaused && poiOverlay.classList.contains('visible')) { e.preventDefault(); closePoiOverlay(); return; }
+                 switch (e.key) {
+                     case ' ': case 'ArrowUp': e.preventDefault(); if (!allAssetsLoaded) return; if (currentGameState === GameState.PLAYING) { handleJumpInput(); } else if (currentGameState === GameState.MENU) { startGame(); } else if (currentGameState === GameState.GAME_OVER) { restartGame(); } break;
+                     case 'ArrowLeft': e.preventDefault(); if (currentGameState === GameState.PLAYING && !isPaused) { isPressingLeft = true; } break;
+                     case 'ArrowRight': e.preventDefault(); if (currentGameState === GameState.PLAYING && !isPaused) { isPressingRight = true; } break;
+                 }
+             }
+            function handleKeyUp(e) { switch (e.key) { case 'ArrowLeft': isPressingLeft = false; break; case 'ArrowRight': isPressingRight = false; break; } }
+            function handleMouseClick(e) {
+                 if (e.target === closePoiButton || e.target === startButton || e.target === restartButton || joystickContainer.contains(e.target) || jumpButton.contains(e.target)) { return; }
+                 if (!allAssetsLoaded) return; if (isPaused && poiOverlay.classList.contains('visible')) { return; }
+                 switch (currentGameState) { case GameState.PLAYING: handleJumpInput(); break; case GameState.MENU: startGame(); break; case GameState.GAME_OVER: restartGame(); break; }
+             }
+             function handleScreenTouch(e) {
+                 e.preventDefault(); if (!allAssetsLoaded) return;
+                 if (joystickContainer.contains(e.target) || jumpButton.contains(e.target)) { return; }
+                 switch (currentGameState) { case GameState.PLAYING: if (!isPaused) { handleJumpInput(); } break; case GameState.MENU: if (e.target === startButton || e.target === canvas || e.target === gameContainer) { startGame(); } break; case GameState.GAME_OVER: if (e.target === restartButton || e.target === canvas || e.target === gameContainer) { restartGame(); } break; }
+             }
+            // --- Joystick Handlers (Unchanged) ---
+            function handleJoystickStart(e) { if (currentGameState !== GameState.PLAYING || isPaused) return; e.preventDefault(); joystickBaseRect = joystickBase.getBoundingClientRect(); joystickRadius = joystickBaseRect.width / 2 - joystickKnob.offsetWidth / 2; joystickActive = true; const touch = e.touches[0]; joystickStartX = touch.clientX; joystickStartY = touch.clientY; }
+            function handleJoystickMove(e) { if (!joystickActive || currentGameState !== GameState.PLAYING || isPaused) return; e.preventDefault(); const touch = e.touches[0]; const currentX = touch.clientX; const currentY = touch.clientY; let deltaX = currentX - joystickStartX; let deltaY = currentY - joystickStartY; const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY); let clampedX = deltaX; let clampedY = deltaY; if (dist > joystickRadius) { const scale = joystickRadius / dist; clampedX = deltaX * scale; clampedY = deltaY * scale; } joystickKnob.style.transform = `translate(calc(-50% + ${clampedX}px), calc(-50% + ${clampedY}px))`; if (deltaX < -JOYSTICK_DEAD_ZONE) { isPressingLeft = true; isPressingRight = false; } else if (deltaX > JOYSTICK_DEAD_ZONE) { isPressingRight = true; isPressingLeft = false; } else { isPressingLeft = false; isPressingRight = false; } }
+            function handleJoystickEnd(e) { if (!joystickActive) return; e.preventDefault(); joystickKnob.style.transform = 'translate(-50%, -50%)'; joystickActive = false; isPressingLeft = false; isPressingRight = false; }
+
+
+            // --- resizeCanvas (Mostly unchanged, ensures dynamic values recalculated) ---
+            function resizeCanvas() {
+                const containerWidth = gameContainer.clientWidth;
+                const containerHeight = gameContainer.clientHeight;
+                canvasWidth = containerWidth;
+                canvasHeight = containerHeight;
+                if (canvasWidth > 0 && canvasHeight > 0) {
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
+                    console.log(`Canvas resized to: ${canvasWidth}x${canvasHeight}`);
+                    if (gameInitialized) {
+                        console.log("Recalculating dynamic values on resize...");
+                        groundHeightPx = canvasHeight * GROUND_HEIGHT_PERCENT;
+                        collisionLandingTolerancePx = canvasHeight * COLLISION_LANDING_TOLERANCE_FACTOR;
+                        obstacleSpeed = canvasWidth * OBSTACLE_SPEED_FACTOR;
+                        playerMaxDx = canvasWidth * PLAYER_MAX_DX_FACTOR;
+                        playerAccel = canvasWidth * PLAYER_ACCEL_FACTOR;
+                        player.gravity = canvasHeight / PLAYER_GRAVITY_FACTOR;
+                        player.jumpPower = canvasHeight / PLAYER_JUMP_FACTOR;
+                        // Update player size based on mobile breakpoint
+                        const isMobileWidth = window.innerWidth <= MOBILE_BREAKPOINT_WIDTH;
+                        if (isMobileWidth) { player.width = canvasWidth * PLAYER_WIDTH_PERCENT_MOBILE; player.height = canvasHeight * PLAYER_HEIGHT_PERCENT_MOBILE; }
+                        else { player.width = canvasWidth * PLAYER_WIDTH_PERCENT_DESKTOP; player.height = canvasHeight * PLAYER_HEIGHT_PERCENT_DESKTOP; }
+                        // Don't reset Y pos here, let physics handle it
+                        // player.y = canvasHeight - groundHeightPx - player.height;
+
+                         // --- Adjust platform Y positions based on new height ---
+                         platforms.forEach(p => {
+                             // This simple scaling assumes platforms maintain relative vertical position
+                             // More complex logic might be needed for precise level design scaling
+                             // Example: p.y = initial_relative_y * canvasHeight;
+                             // For now, let's keep them fixed relative to the initial height definition
+                             // Or adjust based on ground height:
+                             // p.y = canvasHeight - (initial_canvas_height - initial_p_y);
+                         });
+                    }
+                } else { console.warn("Resize resulted in zero canvas dimensions, skipping resize logic."); }
+            }
+
+            // --- Initial Setup (Unchanged) ---
+            function initGame() {
+                if (gameInitialized || !allAssetsLoaded) return;
+                console.log("Initializing Game...");
+                gameInitialized = true;
+                if (!assets.knight_run.loaded || !assets.knight_jump.loaded) { console.error("Essential knight assets failed to load!"); alert("Error: Essential knight images failed to load. Game cannot start."); return; }
+                loadHighScore();
+                resizeCanvas(); // Initial resize
+                startScreen.classList.remove('hidden'); gameOverScreen.classList.add('hidden'); scoreDisplay.classList.add('hidden'); livesDisplay.classList.add('hidden'); poiOverlay.classList.remove('visible'); knightImageEl.style.display = 'none';
+                // Remove/Add listeners (same as original)
+                startButton.removeEventListener('click', startGame); restartButton.removeEventListener('click', restartGame); document.removeEventListener('keydown', handleKeyDown); document.removeEventListener('keyup', handleKeyUp); gameContainer.removeEventListener('touchstart', handleScreenTouch); gameContainer.removeEventListener('click', handleMouseClick); window.removeEventListener('resize', resizeCanvas);
+                closePoiButton.removeEventListener('click', closePoiOverlay); poiOverlay.removeEventListener('touchstart', closePoiOverlay); joystickContainer.removeEventListener('touchstart', handleJoystickStart); joystickContainer.removeEventListener('touchmove', handleJoystickMove); joystickContainer.removeEventListener('touchend', handleJoystickEnd); joystickContainer.removeEventListener('touchcancel', handleJoystickEnd); jumpButton.removeEventListener('touchstart', handleJumpInput);
+
+                console.log("Attaching listeners..."); startButton.addEventListener('click', startGame); restartButton.addEventListener('click', restartGame); document.addEventListener('keydown', handleKeyDown); document.addEventListener('keyup', handleKeyUp); gameContainer.addEventListener('touchstart', handleScreenTouch, { passive: false }); gameContainer.addEventListener('click', handleMouseClick); window.addEventListener('resize', resizeCanvas);
+                closePoiButton.addEventListener('click', closePoiOverlay); poiOverlay.addEventListener('touchstart', closePoiOverlay, { passive: false }); joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false }); joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false }); joystickContainer.addEventListener('touchend', handleJoystickEnd, { passive: false }); joystickContainer.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
+                 // Make jump button use handleJumpInput
+                 jumpButton.removeEventListener('touchstart', handleJumpInput); // Remove old listener if any
+                 jumpButton.addEventListener('touchstart', handleJumpInput, { passive: false }); // Add correct listener
+
+                console.log("Event listeners attached.");
+                currentGameState = GameState.MENU; console.log("Set gameState to MENU"); lastTime = performance.now(); requestAnimationFrame(gameLoop); console.log("Initial game loop requested.");
+            }
+
+            // --- Start Asset Loading ---
+            document.addEventListener('DOMContentLoaded', () => { console.log("DOM Ready. Starting asset load."); loadAssets(); });
 
         })(); // End of IIFE
     </script>
