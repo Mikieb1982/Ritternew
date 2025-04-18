@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Platformer</title>
+    <title>Simple Platformer - Enhanced</title>
     <style>
         body {
             display: flex;
-            flex-direction: column; /* Stack canvas and instructions */
+            flex-direction: column; /* Stack canvas and text */
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
             background-color: #444; /* Neutral background */
             font-family: sans-serif;
+            color: white;
         }
         #game-container {
             border: 2px solid white;
             margin-bottom: 10px; /* Space between canvas and text */
+            position: relative; /* Needed for absolute positioning of UI */
         }
         canvas {
             display: block;
@@ -25,7 +27,19 @@
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
+        #ui-elements {
+             position: absolute;
+             top: 10px;
+             left: 10px;
+             background-color: rgba(0,0,0,0.6);
+             padding: 8px;
+             border-radius: 5px;
+             font-size: 1.1em;
+             color: #FFFF00; /* Yellow score */
+             text-shadow: 1px 1px 1px black;
+        }
         #instructions {
+            margin-top: 5px; /* Space above instructions */
             color: white;
             text-align: center;
         }
@@ -34,8 +48,11 @@
 <body>
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
+        <div id="ui-elements">
+            Score: <span id="score">0</span> / <span id="total-collectibles">0</span>
+        </div>
     </div>
-    <div id="instructions">Use Left/Right Arrows to Move, Up Arrow/Space to Jump</div>
+    <div id="instructions">Use Left/Right Arrows to Move, Up Arrow/Space to Jump. Collect all items! Avoid obstacles!</div>
 
     <script>
         // --- Strict mode and IIFE ---
@@ -45,59 +62,104 @@
             // --- DOM Elements ---
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
+            const scoreSpan = document.getElementById('score');
+            const totalCollectiblesSpan = document.getElementById('total-collectibles');
 
             // --- Essential Element Check ---
-            if (!canvas || !ctx) {
-                alert("Fatal Error: Canvas not found!");
+            if (!canvas || !ctx || !scoreSpan || !totalCollectiblesSpan) {
+                alert("Fatal Error: Required elements not found!");
                 return;
             }
 
             // --- Game Configuration ---
-            const gravity = 800; // Pixels per second squared
-            const playerSpeed = 200; // Horizontal speed, pixels per second
-            const jumpPower = 450; // Initial upward velocity, pixels per second
-            const playerWidth = 32; // Player dimensions
-            const playerHeight = 42; // Player dimensions (adjust if using different sprite)
+            const gravity = 800;
+            const playerSpeed = 200;
+            const jumpPower = 450;
+            const playerWidth = 32;
+            const playerHeight = 42;
+            const collectibleSize = 35; // Size for collectible images
+            const obstacleTractorWidth = 60;
+            const obstacleTractorHeight = 45;
+            const obstacleFamilyWidth = 30;
+            const obstacleFamilyHeight = 50;
 
             // --- Assets ---
-            // Using knight_jump as a static representation for simplicity.
-            // You could swap this for knight_run.gif if preferred, but animation isn't handled here.
-            const playerAsset = { img: new Image(), loaded: false, src: 'assets/knight_jump.png' };
+            const assetsToLoad = {
+                player: { img: new Image(), loaded: false, src: 'assets/knight_jump.png' },
+                // Collectibles (POI Signs)
+                therme: { img: new Image(), loaded: false, src: 'assets/therme.png' },
+                freibad: { img: new Image(), loaded: false, src: 'assets/freibad.png' },
+                kulturzentrum: { img: new Image(), loaded: false, src: 'assets/kulturzentrum.png' },
+                bahnhof: { img: new Image(), loaded: false, src: 'assets/bahnhof.png' },
+                post: { img: new Image(), loaded: false, src: 'assets/post.png' },
+                rathaus: { img: new Image(), loaded: false, src: 'assets/rathaus.png' },
+                burg: { img: new Image(), loaded: false, src: 'assets/burg.png' },
+                // Obstacles
+                tractor: { img: new Image(), loaded: false, src: 'assets/tractor.png' },
+                family: { img: new Image(), loaded: false, src: 'assets/family.png' },
+                // Optional: Stone for platforms (not used for drawing yet)
+                // stone: { img: new Image(), loaded: false, src: 'assets/stone.png' }
+            };
             let assetsLoadedCount = 0;
-            const totalAssets = 1; // Just the player asset for now
+            const totalAssets = Object.keys(assetsToLoad).length;
             let allAssetsLoaded = false;
 
             // --- Game State ---
+            let score = 0;
+            let gameWon = false; // Flag for winning state
+
             const player = {
-                x: canvas.width / 2 - playerWidth / 2,
-                y: canvas.height - playerHeight - 50, // Start near bottom
+                x: 50, // Start near left edge
+                y: canvas.height - playerHeight - 50,
                 width: playerWidth,
                 height: playerHeight,
                 velocityX: 0,
                 velocityY: 0,
-                isGrounded: false
+                isGrounded: false,
+                spawnX: 50, // Remember spawn point for reset
+                spawnY: canvas.height - playerHeight - 50
             };
 
-            // Platform definitions: { x, y, width, height }
-            // Y coordinate is the top edge of the platform.
+            // Platforms (same as before)
             const platforms = [
-                // Ground platform
-                { x: 0, y: canvas.height - 20, width: canvas.width, height: 20, color: '#228B22' }, // ForestGreen
-                // Some ledges
-                { x: 100, y: canvas.height - 100, width: 150, height: 15, color: '#A0522D' }, // Sienna
+                { x: 0, y: canvas.height - 20, width: canvas.width, height: 20, color: '#228B22' },
+                { x: 100, y: canvas.height - 100, width: 150, height: 15, color: '#A0522D' },
                 { x: 350, y: canvas.height - 180, width: 200, height: 15, color: '#A0522D' },
-                { x: 600, y: canvas.height - 260, width: 100, height: 15, color: '#A0522D' },
-                { x: 400, y: canvas.height - 340, width: 80, height: 15, color: '#A0522D' },
-                { x: 150, y: canvas.height - 250, width: 100, height: 15, color: '#A0522D' }
+                { x: 600, y: canvas.height - 120, width: 100, height: 15, color: '#A0522D' }, // Adjusted height
+                { x: 400, y: canvas.height - 260, width: 80, height: 15, color: '#A0522D' }, // Adjusted height
+                { x: 150, y: canvas.height - 330, width: 100, height: 15, color: '#A0522D' } // Adjusted height
             ];
+
+            // Collectibles: { x, y, width, height, assetKey, collected }
+            let collectibles = [
+                { x: 150, y: canvas.height - 100 - collectibleSize - 10, assetKey: 'therme', collected: false },
+                { x: 450, y: canvas.height - 180 - collectibleSize - 10, assetKey: 'freibad', collected: false },
+                { x: 650, y: canvas.height - 120 - collectibleSize - 10, assetKey: 'bahnhof', collected: false },
+                { x: 420, y: canvas.height - 260 - collectibleSize - 10, assetKey: 'post', collected: false },
+                { x: 180, y: canvas.height - 330 - collectibleSize - 10, assetKey: 'rathaus', collected: false },
+                { x: 50, y: 50, assetKey: 'kulturzentrum', collected: false }, // Example high collectible
+                { x: 700, y: 50, assetKey: 'burg', collected: false } // Example high collectible
+            ];
+             // Add width/height to collectibles after definition
+            collectibles.forEach(c => {
+                c.width = collectibleSize;
+                c.height = collectibleSize;
+            });
+            const totalCollectibles = collectibles.length;
+            totalCollectiblesSpan.textContent = totalCollectibles; // Update UI
+
+
+            // Obstacles: { x, y, width, height, assetKey }
+            const obstacles = [
+                // Place obstacles on the ground platform
+                { x: 250, y: canvas.height - 20 - obstacleTractorHeight, width: obstacleTractorWidth, height: obstacleTractorHeight, assetKey: 'tractor' },
+                { x: 500, y: canvas.height - 20 - obstacleFamilyHeight, width: obstacleFamilyWidth, height: obstacleFamilyHeight, assetKey: 'family' }
+            ];
+
 
             // Input tracking
             const keysPressed = {
-                ArrowUp: false,
-                ArrowDown: false, // Not used currently, but can be added
-                ArrowLeft: false,
-                ArrowRight: false,
-                ' ': false // Space bar for jump
+                ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, ' ': false
             };
 
             let lastTime = 0;
@@ -116,11 +178,11 @@
 
             function assetLoadError(assetKey, event) {
                 console.error(`Failed to load asset: ${assetKey}. Event:`, event);
-                alert(`Error loading image: ${assetKey}\nGame might not display correctly.`);
+                // Don't alert for every asset, maybe just one message at the end
                 assetsLoadedCount++;
                  if (assetsLoadedCount === totalAssets) {
-                    console.warn("Finished loading assets, but some failed.");
-                    allAssetsLoaded = true;
+                    console.warn("Finished loading assets, but some may have failed.");
+                    allAssetsLoaded = true; // Still try to start
                     lastTime = performance.now();
                     requestAnimationFrame(gameLoop);
                 }
@@ -128,144 +190,147 @@
 
             function loadAssets() {
                 console.log("Loading assets...");
-                playerAsset.img.onload = () => { playerAsset.loaded = true; assetLoaded('player'); };
-                playerAsset.img.onerror = (e) => assetLoadError('player', e);
-                playerAsset.img.src = playerAsset.src;
-            }
-
-            // --- Input Handling ---
-            function handleKeyDown(e) {
-                if (keysPressed.hasOwnProperty(e.key)) {
-                    e.preventDefault();
-                    keysPressed[e.key] = true;
+                for (const key in assetsToLoad) {
+                    const asset = assetsToLoad[key];
+                    asset.img.onload = () => { asset.loaded = true; assetLoaded(key); };
+                    asset.img.onerror = (e) => assetLoadError(key, e);
+                    asset.img.src = asset.src;
                 }
             }
 
-            function handleKeyUp(e) {
-                if (keysPressed.hasOwnProperty(e.key)) {
-                    e.preventDefault();
-                    keysPressed[e.key] = false;
-                }
+            // --- Input Handling (same as before) ---
+            function handleKeyDown(e) { if (keysPressed.hasOwnProperty(e.key)) { e.preventDefault(); keysPressed[e.key] = true; } }
+            function handleKeyUp(e) { if (keysPressed.hasOwnProperty(e.key)) { e.preventDefault(); keysPressed[e.key] = false; } }
+
+            // --- Collision Helper (AABB) ---
+            function checkCollision(rect1, rect2) {
+                return rect1.x < rect2.x + rect2.width &&
+                       rect1.x + rect1.width > rect2.x &&
+                       rect1.y < rect2.y + rect2.height &&
+                       rect1.y + rect1.height > rect2.y;
+            }
+
+            // --- Reset Player ---
+            function resetPlayer() {
+                console.log("Player reset!");
+                player.x = player.spawnX;
+                player.y = player.spawnY;
+                player.velocityX = 0;
+                player.velocityY = 0;
+                player.isGrounded = false;
+                // Optional: Add brief invincibility after reset?
             }
 
             // --- Game Logic ---
             function update(dt) {
-                if (!allAssetsLoaded || dt > 0.1) return; // Skip large dt steps, e.g., after pause/tabbing out
+                if (!allAssetsLoaded || dt > 0.1 || gameWon) return; // Skip if assets not loaded, large dt, or game won
 
                 // --- Horizontal Movement ---
-                player.velocityX = 0; // Reset horizontal velocity each frame based on input
-                if (keysPressed.ArrowLeft) {
-                    player.velocityX = -playerSpeed;
-                }
-                if (keysPressed.ArrowRight) {
-                    player.velocityX = playerSpeed;
-                }
-                player.x += player.velocityX * dt;
+                player.velocityX = 0;
+                if (keysPressed.ArrowLeft) { player.velocityX = -playerSpeed; }
+                if (keysPressed.ArrowRight) { player.velocityX = playerSpeed; }
+                let potentialX = player.x + player.velocityX * dt;
 
                 // --- Vertical Movement (Gravity) ---
-                // Apply gravity (increases downward velocity)
                 player.velocityY += gravity * dt;
-                // Update vertical position based on velocity
-                player.y += player.velocityY * dt;
+                let potentialY = player.y + player.velocityY * dt;
 
-                // Assume not grounded until collision check proves otherwise
+                // Assume not grounded
                 player.isGrounded = false;
 
                 // --- Collision Detection & Resolution with Platforms ---
+                let adjustedY = potentialY; // Start with potential Y
+                let adjustedX = potentialX; // Start with potential X
+
                 for (const platform of platforms) {
-                    // Check for collision using AABB (Axis-Aligned Bounding Box)
-                    if (player.x < platform.x + platform.width &&
-                        player.x + player.width > platform.x &&
-                        player.y < platform.y + platform.height &&
-                        player.y + player.height > platform.y)
-                    {
-                        // Collision detected! Now determine the collision side.
+                    const playerRect = { x: potentialX, y: potentialY, width: player.width, height: player.height };
+                    const platformRect = { x: platform.x, y: platform.y, width: platform.width, height: platform.height };
 
-                        // Calculate overlap on each axis
-                        const overlapX = (player.width / 2 + platform.width / 2) - Math.abs((player.x + player.width / 2) - (platform.x + platform.width / 2));
-                        const overlapY = (player.height / 2 + platform.height / 2) - Math.abs((player.y + player.height / 2) - (platform.y + platform.height / 2));
-
-                        // Determine primary collision axis (smallest overlap resolution)
-                        if (overlapY < overlapX) {
-                            // Vertical collision is primary
-
-                            // Check if player was moving down (landing) and was previously above the platform
-                            // player.velocityY > 0 checks downward movement
-                            // (player.y + player.height - player.velocityY * dt <= platform.y) checks if bottom edge was above platform top last frame
-                            if (player.velocityY >= 0 && (player.y + player.height - player.velocityY * dt - 1) <= platform.y) {
-                                // Landed on top
-                                player.isGrounded = true;
-                                player.velocityY = 0;
-                                player.y = platform.y - player.height; // Snap player top edge of platform
-                                // console.log("Landed on platform"); // Debug log
-                            }
-                            // Check if player was moving up (hitting bottom)
-                            else if (player.velocityY < 0 && (player.y - player.velocityY * dt + 1) >= platform.y + platform.height) {
-                                // Hit bottom of platform
-                                player.velocityY = 0; // Stop upward movement
-                                player.y = platform.y + platform.height; // Snap player bottom edge of platform
-                                // console.log("Hit bottom of platform"); // Debug log
-                            }
-                        } else {
-                            // Horizontal collision is primary
-
-                             // Check if player was moving right (hitting left side)
-                             if (player.velocityX > 0 && (player.x + player.width - player.velocityX * dt -1) <= platform.x) {
-                                 player.velocityX = 0; // Stop horizontal movement
-                                 player.x = platform.x - player.width; // Snap player to left edge
-                                 // console.log("Hit left side"); // Debug log
-                             }
-                             // Check if player was moving left (hitting right side)
-                             else if (player.velocityX < 0 && (player.x - player.velocityX * dt + 1) >= platform.x + platform.width) {
-                                 player.velocityX = 0; // Stop horizontal movement
-                                 player.x = platform.x + platform.width; // Snap player to right edge
-                                 // console.log("Hit right side"); // Debug log
-                             }
+                    if (checkCollision(playerRect, platformRect)) {
+                        // --- Resolve Vertical Collision First ---
+                        // Check if landing on top
+                        if (player.velocityY >= 0 && (player.y + player.height) <= platform.y + 1) { // Check if bottom was above platform top
+                            adjustedY = platform.y - player.height; // Snap to top
+                            player.velocityY = 0;
+                            player.isGrounded = true;
+                            // console.log("Landed");
                         }
+                        // Check if hitting bottom
+                        else if (player.velocityY < 0 && player.y >= (platform.y + platform.height - 1)) { // Check if top was below platform bottom
+                             adjustedY = platform.y + platform.height; // Snap to bottom
+                             player.velocityY = 0;
+                             // console.log("Hit bottom");
+                        }
+
+                        // --- Resolve Horizontal Collision Second (using the vertically adjusted position) ---
+                         const playerVerticallyAdjustedRect = { x: potentialX, y: adjustedY, width: player.width, height: player.height };
+                         if(checkCollision(playerVerticallyAdjustedRect, platformRect)) { // Recheck with adjusted Y
+                             // Check hitting left side
+                             if (player.velocityX > 0 && (player.x + player.width) <= platform.x + 1) {
+                                 adjustedX = platform.x - player.width;
+                                 player.velocityX = 0; // Stop horizontal movement
+                                 // console.log("Hit left side");
+                             }
+                             // Check hitting right side
+                             else if (player.velocityX < 0 && player.x >= (platform.x + platform.width - 1)) {
+                                 adjustedX = platform.x + platform.width;
+                                 player.velocityX = 0; // Stop horizontal movement
+                                 // console.log("Hit right side");
+                             }
+                         }
+                    }
+                }
+                // Apply adjusted positions
+                player.x = adjustedX;
+                player.y = adjustedY;
+
+
+                // --- Jumping ---
+                if ((keysPressed.ArrowUp || keysPressed[' ']) && player.isGrounded) {
+                    player.velocityY = -jumpPower;
+                    player.isGrounded = false;
+                }
+
+                // --- Collision with Collectibles ---
+                for (let i = collectibles.length - 1; i >= 0; i--) {
+                    const item = collectibles[i];
+                    if (!item.collected && checkCollision(player, item)) {
+                        item.collected = true;
+                        score++;
+                        scoreSpan.textContent = score;
+                        console.log("Collected:", item.assetKey, "Score:", score);
+                        // Check for win condition
+                        if (score === totalCollectibles) {
+                            gameWon = true;
+                            console.log("YOU WIN! All items collected!");
+                            // Display win message (handled in draw)
+                        }
+                        // Optional: Play sound effect
+                    }
+                }
+
+                // --- Collision with Obstacles ---
+                for (const obs of obstacles) {
+                    if (checkCollision(player, obs)) {
+                        console.log("Hit obstacle!");
+                        resetPlayer(); // Reset player position
+                        // Optional: Play sound, decrease lives etc.
+                        break; // Only handle one obstacle collision per frame
                     }
                 }
 
 
-                // --- Jumping ---
-                // Allow jump only if grounded
-                if ((keysPressed.ArrowUp || keysPressed[' ']) && player.isGrounded) {
-                    player.velocityY = -jumpPower; // Apply upward velocity
-                    player.isGrounded = false; // No longer grounded
-                    // console.log("Jump!"); // Debug log
-                }
-
-
                 // --- Boundary Checking (Canvas Edges) ---
-                // Prevent moving off left/right edges
-                if (player.x < 0) {
-                    player.x = 0;
-                    player.velocityX = 0; // Stop movement if hitting edge
-                }
-                if (player.x + player.width > canvas.width) {
-                    player.x = canvas.width - player.width;
-                    player.velocityX = 0; // Stop movement if hitting edge
-                }
-                // Optional: Prevent falling off the bottom (though ground platform should handle this)
-                if (player.y > canvas.height) {
-                    // Reset player position or handle "death" state
-                    player.y = canvas.height - playerHeight - 50;
-                    player.x = canvas.width / 2 - playerWidth / 2;
-                    player.velocityY = 0;
-                    player.isGrounded = false; // Reset grounded status
-                }
-                // Optional: Prevent jumping off the top
-                if (player.y < 0) {
-                    player.y = 0;
-                    if(player.velocityY < 0) player.velocityY = 0; // Stop upward velocity if hitting ceiling
-                }
+                if (player.x < 0) { player.x = 0; player.velocityX = 0; }
+                if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.velocityX = 0; }
+                if (player.y > canvas.height + 100) { resetPlayer(); } // Reset if fallen too far
+                if (player.y < 0) { player.y = 0; if(player.velocityY < 0) player.velocityY = 0; }
             }
 
             // --- Drawing ---
             function draw() {
                 if (!allAssetsLoaded) {
-                     ctx.fillStyle = 'white';
-                     ctx.font = '20px sans-serif';
-                     ctx.textAlign = 'center';
+                     ctx.fillStyle = 'white'; ctx.font = '20px sans-serif'; ctx.textAlign = 'center';
                      ctx.fillText('Loading...', canvas.width / 2, canvas.height / 2);
                      return;
                 }
@@ -273,32 +338,59 @@
                 // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Draw background (already set via CSS)
+                // Draw background (set via CSS)
 
                 // Draw platforms
                 platforms.forEach(platform => {
-                    ctx.fillStyle = platform.color || '#666'; // Default color if none specified
+                    ctx.fillStyle = platform.color || '#666';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
                 });
 
+                 // Draw obstacles
+                 obstacles.forEach(obs => {
+                    const asset = assetsToLoad[obs.assetKey];
+                    if (asset && asset.loaded) {
+                        ctx.drawImage(asset.img, obs.x, obs.y, obs.width, obs.height);
+                    } else { // Fallback
+                        ctx.fillStyle = 'purple';
+                        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                    }
+                });
+
+                // Draw collectibles
+                collectibles.forEach(item => {
+                    if (!item.collected) {
+                        const asset = assetsToLoad[item.assetKey];
+                        if (asset && asset.loaded) {
+                            ctx.drawImage(asset.img, item.x, item.y, item.width, item.height);
+                        } else { // Fallback
+                            ctx.fillStyle = 'gold';
+                            ctx.fillRect(item.x, item.y, item.width, item.height);
+                        }
+                    }
+                });
+
                 // Draw player
+                const playerAsset = assetsToLoad.player;
                 if (playerAsset.loaded) {
                     ctx.drawImage(playerAsset.img, player.x, player.y, player.width, player.height);
-                } else {
-                    // Fallback square if asset failed
+                } else { // Fallback
                     ctx.fillStyle = 'red';
                     ctx.fillRect(player.x, player.y, player.width, player.height);
                 }
 
-                // Optional: Draw collision boxes for debugging
-                /*
-                ctx.strokeStyle = 'lime';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(player.x, player.y, player.width, player.height);
-                platforms.forEach(platform => {
-                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-                });
-                */
+                 // Draw Win Message
+                 if (gameWon) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
+                    ctx.font = 'bold 30px sans-serif';
+                    ctx.fillStyle = '#FFFF00'; // Yellow
+                    ctx.textAlign = 'center';
+                    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2);
+                    ctx.font = '20px sans-serif';
+                     ctx.fillStyle = 'white';
+                    ctx.fillText('All items collected!', canvas.width / 2, canvas.height / 2 + 30);
+                 }
             }
 
             // --- Game Loop ---
@@ -314,7 +406,7 @@
 
             // --- Initialization ---
             function init() {
-                console.log("Initializing simple platformer game...");
+                console.log("Initializing enhanced platformer game...");
                 window.addEventListener('keydown', handleKeyDown);
                 window.addEventListener('keyup', handleKeyUp);
                 loadAssets(); // Load assets; game loop starts on completion
@@ -327,3 +419,4 @@
     </script>
 </body>
 </html>
+
