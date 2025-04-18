@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Level-Based Platformer - Improved Layout</title>
+    <title>Level-Based Platformer - Improved Collision</title>
     <style>
         /* CSS remains the same as the previous version */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -95,106 +95,41 @@
             const totalAssets = Object.keys(assetsToLoad).length;
             let allAssetsLoaded = false;
 
-            // --- Game State (same variables, different initial values below) ---
+            // --- Game State (same variables, same initial values) ---
             let score = 0;
             let gameWon = false;
             let canvasWidth = 800;
             let canvasHeight = 450;
-
-            const player = {
-                x: 50, y: canvasHeight - 20 - playerHeight, // Start on ground left
-                width: playerWidth, height: playerHeight,
-                velocityX: 0, velocityY: 0,
-                isGrounded: true,
-                spawnX: 50, spawnY: canvasHeight - 20 - playerHeight
-            };
-
-            // --- NEW: Improved Platform Layout ---
-            const platformColor = '#A0522D'; // Brown color for platforms
-            const groundColor = '#5a8a36'; // Greener ground
-            const platforms = [
-                // Ground Platform (essential)
+            const player = { x: 50, y: canvasHeight - 20 - playerHeight, width: playerWidth, height: playerHeight, velocityX: 0, velocityY: 0, isGrounded: true, spawnX: 50, spawnY: canvasHeight - 20 - playerHeight };
+            const platformColor = '#A0522D'; const groundColor = '#5a8a36';
+            const platforms = [ /* ... same improved platform layout ... */
                 { x: 0, y: canvasHeight - 20, width: canvasWidth, height: 20, color: groundColor },
-                // Level 1 Platforms (Rightwards)
-                { x: 120, y: 380, width: 100, height: 15, color: platformColor },
-                { x: 280, y: 350, width: 130, height: 15, color: platformColor },
-                { x: 450, y: 390, width: 80, height: 15, color: platformColor }, // Slightly lower
-                { x: 580, y: 360, width: 150, height: 15, color: platformColor },
-                // Level 2 Platforms (Higher up, requiring jumps from Level 1)
-                { x: 70, y: 280, width: 70, height: 15, color: platformColor },  // Jump from ground
-                { x: 200, y: 240, width: 100, height: 15, color: platformColor }, // Jump from 280 platform
-                { x: 400, y: 200, width: 120, height: 15, color: platformColor }, // Jump from 280 or 350 platform
-                { x: 650, y: 250, width: 80, height: 15, color: platformColor }, // Jump from 580 platform
-                // Level 3 Platforms (Highest)
-                { x: 500, y: 130, width: 100, height: 15, color: platformColor }, // Jump from 400 platform
-                { x: 250, y: 100, width: 70, height: 15, color: platformColor },  // Jump from 200 platform
-                { x: 50, y: 80, width: 50, height: 15, color: platformColor }    // Jump from 70 platform
+                { x: 120, y: 380, width: 100, height: 15, color: platformColor }, { x: 280, y: 350, width: 130, height: 15, color: platformColor }, { x: 450, y: 390, width: 80, height: 15, color: platformColor }, { x: 580, y: 360, width: 150, height: 15, color: platformColor },
+                { x: 70, y: 280, width: 70, height: 15, color: platformColor }, { x: 200, y: 240, width: 100, height: 15, color: platformColor }, { x: 400, y: 200, width: 120, height: 15, color: platformColor }, { x: 650, y: 250, width: 80, height: 15, color: platformColor },
+                { x: 500, y: 130, width: 100, height: 15, color: platformColor }, { x: 250, y: 100, width: 70, height: 15, color: platformColor }, { x: 50, y: 80, width: 50, height: 15, color: platformColor }
             ];
-
-            // --- NEW: Repositioned Collectibles ---
-            let collectibles = [
-                // On or near Level 1
-                { x: 150, y: 380 - collectibleSize - 5, assetKey: 'therme', collected: false },
-                { x: 380, y: 350 - collectibleSize - 5, assetKey: 'freibad', collected: false },
-                { x: 620, y: 360 - collectibleSize - 5, assetKey: 'bahnhof', collected: false },
-                // On or near Level 2
-                { x: 220, y: 240 - collectibleSize - 5, assetKey: 'post', collected: false },
-                { x: 450, y: 200 - collectibleSize - 5, assetKey: 'rathaus', collected: false },
-                 // On or near Level 3 (Harder to reach)
-                { x: 530, y: 130 - collectibleSize - 5, assetKey: 'burg', collected: false },
-                { x: 60, y: 80 - collectibleSize - 5, assetKey: 'kulturzentrum', collected: false }
+            let collectibles = [ /* ... same collectible layout ... */
+                { x: 150, y: 380 - collectibleSize - 5, assetKey: 'therme', collected: false }, { x: 380, y: 350 - collectibleSize - 5, assetKey: 'freibad', collected: false }, { x: 620, y: 360 - collectibleSize - 5, assetKey: 'bahnhof', collected: false },
+                { x: 220, y: 240 - collectibleSize - 5, assetKey: 'post', collected: false }, { x: 450, y: 200 - collectibleSize - 5, assetKey: 'rathaus', collected: false },
+                { x: 530, y: 130 - collectibleSize - 5, assetKey: 'burg', collected: false }, { x: 60, y: 80 - collectibleSize - 5, assetKey: 'kulturzentrum', collected: false }
             ];
             collectibles.forEach(c => { c.width = collectibleSize; c.height = collectibleSize; });
             const totalCollectibles = collectibles.length;
             totalCollectiblesSpan.textContent = totalCollectibles;
-
-            // --- NEW: Repositioned Obstacles ---
-            const obstacles = [
-                // Placed on ground, requiring jumps
-                { x: 320, y: canvasHeight - 20 - obstacleTractorHeight, width: obstacleTractorWidth, height: obstacleTractorHeight, assetKey: 'tractor' },
-                { x: 600, y: canvasHeight - 20 - obstacleFamilyHeight, width: obstacleFamilyWidth, height: obstacleFamilyHeight, assetKey: 'family' }
-                // Could add obstacles on platforms later for more challenge
+            const obstacles = [ /* ... same obstacle layout ... */
+                { x: 320, y: canvasHeight - 20 - obstacleTractorHeight, width: obstacleTractorWidth, height: obstacleTractorHeight, assetKey: 'tractor' }, { x: 600, y: canvasHeight - 20 - obstacleFamilyHeight, width: obstacleFamilyWidth, height: obstacleFamilyHeight, assetKey: 'family' }
             ];
-
-            // Input tracking (same)
             const keysPressed = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, ' ': false };
-            let joystickActive = false;
-            let joystickBaseRect = null;
-            let joystickRadius = 0;
-            let jumpButtonPressed = false;
-
+            let joystickActive = false; let joystickBaseRect = null; let joystickRadius = 0; let jumpButtonPressed = false;
             let lastTime = 0;
-            // Scaling factors not actively used for logic/drawing in this fixed-res approach
-            // let scaleX = 1;
-            // let scaleY = 1;
 
             // --- Asset Loading (same) ---
-            function assetLoaded(assetKey) { /* ... */
-                 console.log(`Asset loaded: ${assetKey}`); assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.log("All assets loaded."); allAssetsLoaded = true; assetsToLoad.player.img.style.width = `${player.width}px`; assetsToLoad.player.img.style.height = `${player.height}px`; resizeCanvas(); lastTime = performance.now(); requestAnimationFrame(gameLoop); }
-            }
-            function assetLoadError(assetKey, event) { /* ... */
-                 console.error(`Failed to load asset: ${assetKey}. Event:`, event); assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.warn("Finished loading assets, but some may have failed."); allAssetsLoaded = true; resizeCanvas(); lastTime = performance.now(); requestAnimationFrame(gameLoop); }
-            }
-            function loadAssets() { /* ... */
-                 console.log("Loading assets..."); const playerAsset = assetsToLoad.player; if (playerAsset.img.complete) { playerAsset.loaded = true; assetLoaded('player'); } else { playerAsset.img.onload = () => { playerAsset.loaded = true; assetLoaded('player'); }; playerAsset.img.onerror = (e) => assetLoadError('player', e); if (!playerAsset.img.src) playerAsset.img.src = playerAsset.src; } for (const key in assetsToLoad) { if (key === 'player') continue; const asset = assetsToLoad[key]; asset.img.onload = () => { asset.loaded = true; assetLoaded(key); }; asset.img.onerror = (e) => assetLoadError(key, e); asset.img.src = asset.src; }
-            }
+            function assetLoaded(assetKey) { /* ... */ console.log(`Asset loaded: ${assetKey}`); assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.log("All assets loaded."); allAssetsLoaded = true; assetsToLoad.player.img.style.width = `${player.width}px`; assetsToLoad.player.img.style.height = `${player.height}px`; resizeCanvas(); lastTime = performance.now(); requestAnimationFrame(gameLoop); } }
+            function assetLoadError(assetKey, event) { /* ... */ console.error(`Failed to load asset: ${assetKey}. Event:`, event); assetsLoadedCount++; if (assetsLoadedCount === totalAssets) { console.warn("Finished loading assets, but some may have failed."); allAssetsLoaded = true; resizeCanvas(); lastTime = performance.now(); requestAnimationFrame(gameLoop); } }
+            function loadAssets() { /* ... */ console.log("Loading assets..."); const playerAsset = assetsToLoad.player; if (playerAsset.img.complete) { playerAsset.loaded = true; assetLoaded('player'); } else { playerAsset.img.onload = () => { playerAsset.loaded = true; assetLoaded('player'); }; playerAsset.img.onerror = (e) => assetLoadError('player', e); if (!playerAsset.img.src) playerAsset.img.src = playerAsset.src; } for (const key in assetsToLoad) { if (key === 'player') continue; const asset = assetsToLoad[key]; asset.img.onload = () => { asset.loaded = true; assetLoaded(key); }; asset.img.onerror = (e) => assetLoadError(key, e); asset.img.src = asset.src; } }
 
-            // --- Canvas Resizing (Simplified - mainly for joystick) ---
-            function resizeCanvas() {
-                // Keep canvas rendering size fixed
-                canvas.width = canvasWidth;
-                canvas.height = canvasHeight;
-                // Update joystick dimensions if needed after visual scaling
-                if (joystickBase) {
-                   // Use setTimeout to allow browser layout to update first
-                   setTimeout(() => {
-                       joystickBaseRect = joystickBase.getBoundingClientRect();
-                       joystickRadius = joystickBaseRect.width / 2 - joystickKnob.offsetWidth / 2;
-                   }, 100); // Small delay
-                }
-                console.log(`Canvas fixed at: ${canvas.width}x${canvas.height}`);
-            }
-
+            // --- Canvas Resizing (same) ---
+            function resizeCanvas() { /* ... */ canvas.width = canvasWidth; canvas.height = canvasHeight; if (joystickBase) { setTimeout(() => { joystickBaseRect = joystickBase.getBoundingClientRect(); joystickRadius = joystickBaseRect.width / 2 - joystickKnob.offsetWidth / 2; }, 100); } console.log(`Canvas fixed at: ${canvas.width}x${canvas.height}`); }
 
             // --- Input Handling (Keyboard & Touch - same) ---
             function handleKeyDown(e) { if (keysPressed.hasOwnProperty(e.key)) { e.preventDefault(); keysPressed[e.key] = true; } }
@@ -211,90 +146,132 @@
             // --- Reset Player (same) ---
             function resetPlayer() { /* ... */ console.log("Player reset!"); player.x = player.spawnX; player.y = player.spawnY; player.velocityX = 0; player.velocityY = 0; player.isGrounded = false; }
 
-            // --- Game Logic (Update - same core logic) ---
+            // --- Game Logic (Update) ---
             function update(dt) {
-                if (!allAssetsLoaded || dt > 0.1 || gameWon) return;
+                if (!allAssetsLoaded || dt > 0.1 || gameWon) return; // Skip large dt steps or if won
 
-                // Horizontal Movement
+                // Store previous bottom position for landing check
+                const playerPrevBottom = player.y + player.height;
+
+                // --- Horizontal Movement ---
                 player.velocityX = 0;
                 if (keysPressed.ArrowLeft) { player.velocityX = -playerSpeed; }
                 if (keysPressed.ArrowRight) { player.velocityX = playerSpeed; }
                 let potentialX = player.x + player.velocityX * dt;
 
-                // Vertical Movement (Gravity)
+                // --- Vertical Movement (Gravity) ---
                 player.velocityY += gravity * dt;
                 let potentialY = player.y + player.velocityY * dt;
 
+                // Assume not grounded until collision check proves otherwise
                 player.isGrounded = false;
+                let landedThisFrame = false; // Flag specific to this frame's landing check
 
-                // Platform Collision
-                let adjustedY = potentialY; let adjustedX = potentialX;
+                // --- Collision Detection & Resolution with Platforms ---
+                let adjustedY = potentialY;
+                let adjustedX = potentialX;
+
                 for (const platform of platforms) {
-                    const playerRect = { x: potentialX, y: potentialY, width: player.width, height: player.height };
+                    // Define player's next bounding box based on potential movement
+                    const playerNextRect = { x: potentialX, y: potentialY, width: player.width, height: player.height };
                     const platformRect = { x: platform.x, y: platform.y, width: platform.width, height: platform.height };
-                    if (checkCollision(playerRect, platformRect)) {
-                        if (player.velocityY >= 0 && (player.y + player.height) <= platform.y + 1) { adjustedY = platform.y - player.height; player.velocityY = 0; player.isGrounded = true; }
-                        else if (player.velocityY < 0 && player.y >= (platform.y + platform.height - 1)) { adjustedY = platform.y + platform.height; player.velocityY = 0; }
-                        const playerVerticallyAdjustedRect = { x: potentialX, y: adjustedY, width: player.width, height: player.height };
-                         if(checkCollision(playerVerticallyAdjustedRect, platformRect)) {
-                             if (player.velocityX > 0 && (player.x + player.width) <= platform.x + 1) { adjustedX = platform.x - player.width; player.velocityX = 0; }
-                             else if (player.velocityX < 0 && player.x >= (platform.x + platform.width - 1)) { adjustedX = platform.x + platform.width; player.velocityX = 0; }
-                         }
+
+                    // Broad phase horizontal check (is player horizontally aligned with platform?)
+                    if (playerNextRect.x < platformRect.x + platformRect.width &&
+                        playerNextRect.x + playerNextRect.width > platformRect.x)
+                    {
+                        // --- Check for Vertical Collision: Landing on top ---
+                        // Condition: Player is moving down (or still), was above platform last frame, and will be intersecting/below this frame.
+                        if (player.velocityY >= 0 && // Moving down or still
+                            playerPrevBottom <= platformRect.y + 1 && // Was above (+1 tolerance)
+                            (playerNextRect.y + playerNextRect.height) >= platformRect.y) // Is now below or on top
+                        {
+                            adjustedY = platformRect.y - player.height; // Snap Y to top of platform
+                            player.velocityY = 0; // Stop falling
+                            landedThisFrame = true; // Mark as landed
+                            // console.log("Landed on platform", platform); // Debug
+                        }
+                        // --- Check for Vertical Collision: Hitting bottom ---
+                        else if (player.velocityY < 0 && // Moving up
+                                 player.y >= (platformRect.y + platformRect.height - 1) && // Was below (-1 tolerance)
+                                 playerNextRect.y < (platformRect.y + platformRect.height)) // Is now intersecting/above bottom
+                        {
+                            adjustedY = platformRect.y + platformRect.height; // Snap Y to bottom of platform
+                            player.velocityY = 0; // Stop rising
+                            // console.log("Hit bottom of platform"); // Debug
+                        }
+                    } // End vertical check conditional on horizontal overlap
+
+                    // --- Check for Horizontal Collision ---
+                    // Use the *potentially vertically adjusted* position for this check
+                    const playerVerticallyAdjustedRect = { x: potentialX, y: adjustedY, width: player.width, height: player.height };
+
+                    // Re-check collision with the vertically adjusted position
+                    if (checkCollision(playerVerticallyAdjustedRect, platformRect)) {
+                        // Check hitting left side of platform
+                        if (player.velocityX > 0 && (player.x + player.width) <= platformRect.x + 1) { // Was left
+                            adjustedX = platformRect.x - player.width; // Snap X to left side
+                            player.velocityX = 0; // Stop horizontal movement
+                            // console.log("Hit left side"); // Debug
+                        }
+                        // Check hitting right side of platform
+                        else if (player.velocityX < 0 && player.x >= (platformRect.x + platformRect.width - 1)) { // Was right
+                            adjustedX = platformRect.x + platformRect.width; // Snap X to right side
+                            player.velocityX = 0; // Stop horizontal movement
+                            // console.log("Hit right side"); // Debug
+                        }
                     }
+                } // End platform loop
+
+                // Apply final adjusted positions
+                player.x = adjustedX;
+                player.y = adjustedY;
+
+                // Set final grounded state based on landing flag
+                player.isGrounded = landedThisFrame;
+
+                // --- Jumping ---
+                if ((keysPressed.ArrowUp || keysPressed[' ']) && player.isGrounded) {
+                    player.velocityY = -jumpPower;
+                    player.isGrounded = false; // Become airborne
+                    if (jumpButtonPressed) { keysPressed[' '] = false; } // Prevent multi-jump from button hold
                 }
-                player.x = adjustedX; player.y = adjustedY;
 
-                // Jumping
-                if ((keysPressed.ArrowUp || keysPressed[' ']) && player.isGrounded) { player.velocityY = -jumpPower; player.isGrounded = false; if (jumpButtonPressed) { keysPressed[' '] = false; } }
+                // --- Collision with Collectibles (same) ---
+                for (let i = collectibles.length - 1; i >= 0; i--) { const item = collectibles[i]; if (!item.collected && checkCollision(player, item)) { item.collected = true; score++; scoreSpan.textContent = score; if (score === totalCollectibles) { gameWon = true; console.log("YOU WIN!"); } } }
 
-                // Collectible Collision
-                for (let i = collectibles.length - 1; i >= 0; i--) {
-                    const item = collectibles[i];
-                    if (!item.collected && checkCollision(player, item)) { item.collected = true; score++; scoreSpan.textContent = score; if (score === totalCollectibles) { gameWon = true; console.log("YOU WIN!"); } }
-                }
-
-                // Obstacle Collision
+                // --- Collision with Obstacles (same) ---
                 for (const obs of obstacles) { if (checkCollision(player, obs)) { resetPlayer(); break; } }
 
-                // Boundary Checking
+                // --- Boundary Checking (same) ---
                 if (player.x < 0) { player.x = 0; player.velocityX = 0; }
                 if (player.x + player.width > canvasWidth) { player.x = canvasWidth - player.width; player.velocityX = 0; }
                 if (player.y > canvasHeight + 100) { resetPlayer(); }
                 if (player.y < 0) { player.y = 0; if(player.velocityY < 0) player.velocityY = 0; }
 
-                // Update Knight Image Element Position & Visuals
-                knightImageEl.style.left = `${player.x}px`;
-                knightImageEl.style.top = `${player.y}px`;
+                // --- Update Knight Image Element Position & Visuals (same) ---
+                knightImageEl.style.left = `${player.x}px`; knightImageEl.style.top = `${player.y}px`;
                 const playerAsset = assetsToLoad.player;
-                 if (playerAsset.loaded) {
-                     // Basic check for run gif (requires 'knight_run.gif' in assetsToLoad if used)
-                     let targetSrc = player.isGrounded && (keysPressed.ArrowLeft || keysPressed.ArrowRight) && assetsToLoad.knight_run
-                                     ? assetsToLoad.knight_run.src
-                                     : assetsToLoad.player.src; // Default to jump/idle
-                     if (playerAsset.img.src !== targetSrc) { playerAsset.img.src = targetSrc; }
-                 }
+                 if (playerAsset.loaded) { let targetSrc = player.isGrounded && (keysPressed.ArrowLeft || keysPressed.ArrowRight) && assetsToLoad.knight_run ? assetsToLoad.knight_run.src : assetsToLoad.player.src; if (playerAsset.img.src !== targetSrc) { playerAsset.img.src = targetSrc; } }
+
             } // --- End of Update ---
 
-            // --- Drawing (same logic, draws fixed elements) ---
-            function draw() {
+
+            // --- Drawing (same) ---
+            function draw() { /* ... same draw logic ... */
                 if (!allAssetsLoaded) { /* Loading... */ return; }
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
-                // Draw platforms
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 platforms.forEach(platform => { ctx.fillStyle = platform.color || '#666'; ctx.fillRect(platform.x, platform.y, platform.width, platform.height); });
-                // Draw obstacles
                 obstacles.forEach(obs => { const asset = assetsToLoad[obs.assetKey]; if (asset && asset.loaded) { ctx.drawImage(asset.img, obs.x, obs.y, obs.width, obs.height); } else { ctx.fillStyle = 'purple'; ctx.fillRect(obs.x, obs.y, obs.width, obs.height); } });
-                // Draw collectibles
                 collectibles.forEach(item => { if (!item.collected) { const asset = assetsToLoad[item.assetKey]; if (asset && asset.loaded) { ctx.drawImage(asset.img, item.x, item.y, item.width, item.height); } else { ctx.fillStyle = 'gold'; ctx.fillRect(item.x, item.y, item.width, item.height); } } });
-                // Player is drawn via HTML element
-                // Draw Win Message
                 if (gameWon) { ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80); ctx.font = 'bold 30px sans-serif'; ctx.fillStyle = '#FFFF00'; ctx.textAlign = 'center'; ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height / 2); ctx.font = '20px sans-serif'; ctx.fillStyle = 'white'; ctx.fillText('All items collected!', canvas.width / 2, canvas.height / 2 + 30); }
-            } // --- End of Draw ---
+            }
 
             // --- Game Loop (same) ---
             function gameLoop(timestamp) { /* ... */ const dt = (timestamp - lastTime) / 1000; lastTime = timestamp; update(dt); draw(); requestAnimationFrame(gameLoop); }
 
             // --- Initialization (same) ---
-            function init() { /* ... */ console.log("Initializing improved level platformer..."); canvas.width = canvasWidth; canvas.height = canvasHeight; window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp); joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false }); joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false }); joystickContainer.addEventListener('touchend', handleJoystickEnd, { passive: false }); joystickContainer.addEventListener('touchcancel', handleJoystickEnd, { passive: false }); jumpButton.addEventListener('touchstart', handleJumpPress, { passive: false }); jumpButton.addEventListener('touchend', handleJumpRelease, { passive: false }); jumpButton.addEventListener('touchcancel', handleJumpRelease, { passive: false }); window.addEventListener('resize', resizeCanvas); loadAssets(); }
+            function init() { /* ... */ console.log("Initializing improved collision platformer..."); canvas.width = canvasWidth; canvas.height = canvasHeight; window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp); joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false }); joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false }); joystickContainer.addEventListener('touchend', handleJoystickEnd, { passive: false }); joystickContainer.addEventListener('touchcancel', handleJoystickEnd, { passive: false }); jumpButton.addEventListener('touchstart', handleJumpPress, { passive: false }); jumpButton.addEventListener('touchend', handleJumpRelease, { passive: false }); jumpButton.addEventListener('touchcancel', handleJumpRelease, { passive: false }); window.addEventListener('resize', resizeCanvas); loadAssets(); }
 
             // --- Start the game ---
             document.addEventListener('DOMContentLoaded', init);
